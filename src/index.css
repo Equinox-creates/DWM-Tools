@@ -1,1 +1,44 @@
 @import "tailwindcss";
+
+:root {
+  --scrollbar-bg: #2a2c30;          /* Scrollbar track background */
+  --scrollbar-thumb: #191a1d;       /* Scrollbar thumb color */
+  --scrollbar-thumb-hover: #0f0f0f; /* Scrollbar thumb hover color */
+  --scrollbar-size: 10px;           /* Scrollbar width/height */
+  --scrollbar-radius: 999px;        /* Fully rounded corners */
+}
+
+/* Firefox */
+*,
+*::before,
+*::after {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-bg);
+}
+
+/* WebKit-based browsers (Chrome, Edge, Safari) */
+::-webkit-scrollbar {
+  width: var(--scrollbar-size);
+  height: var(--scrollbar-size);
+}
+
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-bg);
+  border-radius: var(--scrollbar-radius);
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--scrollbar-thumb);
+  border-radius: var(--scrollbar-radius);
+  border: 2px solid transparent; /* Padding around thumb */
+  background-clip: padding-box;
+  transition: background-color 0.12s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--scrollbar-thumb-hover);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
