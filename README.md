@@ -1,20 +1,11 @@
 <div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+<img width="1200" height="475" alt="EQNBanner" src="img/Banner.png" />
 </div>
 
-# Run and deploy your AI Studio app
-
-This contains everything you need to run your app locally.
-
-View your app in AI Studio: https://ai.studio/apps/d0d05f65-00e8-4cd1-877f-e5d87b714e46
-
-## Run Locally
-
-**Prerequisites:**  Node.js
-
-
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+# DWM (Discord WeHook Manager [EQN] )
+- This WebSite is made For Edit WebHook's Massegs Easily With User Fraindly UI.
+- This WebSite Also Cntains Profetinal Tools In Order To Push The Limit of Managing WebHooks's Masseges.
+- The Tools Are All Free
+- Contains Online Stors
+- GitHub Server
+- Almost 0 Issues
