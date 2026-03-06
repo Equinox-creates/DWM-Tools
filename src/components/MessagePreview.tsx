@@ -8,38 +8,48 @@ import remarkGfm from 'remark-gfm';
 interface PreviewProps {
   message: DiscordWebhookMessage;
   webhookData?: { name?: string, avatar?: string } | null;
+  darkMode?: boolean;
 }
 
-const MarkdownRenderer = ({ content, className }: { content: string, className?: string }) => {
+const MarkdownRenderer = ({ content, className, darkMode = true }: { content: string, className?: string, darkMode?: boolean }) => {
   return (
     <div className={cn("markdown-body", className)}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
-          p: ({node: _node, ...props}) => <p className="mb-1 last:mb-0" {...props} />,
-          a: ({node: _node, ...props}) => <a className="text-[#00A8FC] hover:underline" target="_blank" rel="noreferrer" {...props} />,
-          blockquote: ({node: _node, ...props}) => (
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          p: ({node, ...props}) => <p className="mb-1 last:mb-0" {...props} />,
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          a: ({node, ...props}) => <a className="text-[#00A8FC] hover:underline" target="_blank" rel="noreferrer" {...props} />,
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          blockquote: ({node, ...props}) => (
               <div className="flex">
                   <div className="w-1 bg-[#4f545c] rounded-l mr-2"></div>
-                  <blockquote className="text-[#dbdee1] opacity-90" {...props} />
+                  <blockquote className={`${darkMode ? 'text-[#dbdee1]' : 'text-[#4e5058]'} opacity-90`} {...props} />
               </div>
           ),
-          code: ({node: _node, inline, className: _className, children, ...props}: any) => {
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          code: ({node, inline, className, children, ...props}: {node?: unknown, inline?: boolean, className?: string, children?: React.ReactNode}) => {
             return inline ? (
-              <code className="bg-[#2b2d31] px-1.5 py-0.5 rounded text-[85%] font-mono" {...props}>
+              <code className={`${darkMode ? 'bg-[#2b2d31]' : 'bg-[#f2f3f5]'} px-1.5 py-0.5 rounded text-[85%] font-mono`} {...props}>
                 {children}
               </code>
             ) : (
-              <div className="bg-[#2b2d31] p-2 rounded border border-[#1e1f22] mt-1 mb-1 overflow-x-auto font-mono text-sm">
+              <div className={`${darkMode ? 'bg-[#2b2d31] border-[#1e1f22]' : 'bg-[#f2f3f5] border-[#e3e5e8]'} p-2 rounded border mt-1 mb-1 overflow-x-auto font-mono text-sm`}>
                   <code {...props}>{children}</code>
               </div>
             )
           },
-          ul: ({node: _node, ...props}) => <ul className="list-disc list-inside mb-1" {...props} />,
-          ol: ({node: _node, ...props}) => <ol className="list-decimal list-inside mb-1" {...props} />,
-          h1: ({node: _node, ...props}) => <h1 className="text-xl font-bold mb-2 border-b border-[#4f545c] pb-1" {...props} />,
-          h2: ({node: _node, ...props}) => <h2 className="text-lg font-bold mb-2 border-b border-[#4f545c] pb-1" {...props} />,
-          h3: ({node: _node, ...props}) => <h3 className="text-base font-bold mb-1" {...props} />,
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          ul: ({node, ...props}) => <ul className="list-disc list-inside mb-1" {...props} />,
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          ol: ({node, ...props}) => <ol className="list-decimal list-inside mb-1" {...props} />,
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          h1: ({node, ...props}) => <h1 className="text-xl font-bold mb-2 border-b border-[#4f545c] pb-1" {...props} />,
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          h2: ({node, ...props}) => <h2 className="text-lg font-bold mb-2 border-b border-[#4f545c] pb-1" {...props} />,
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          h3: ({node, ...props}) => <h3 className="text-base font-bold mb-1" {...props} />,
         }}
       >
         {content}
@@ -48,12 +58,12 @@ const MarkdownRenderer = ({ content, className }: { content: string, className?:
   );
 };
 
-export const MessagePreview: React.FC<PreviewProps> = ({ message, webhookData }) => {
+export const MessagePreview: React.FC<PreviewProps> = ({ message, webhookData, darkMode = true }) => {
   const username = message.username || webhookData?.name || "Spidey Bot";
   const avatarUrl = message.avatar_url || webhookData?.avatar || "https://cdn.discordapp.com/embed/avatars/0.png";
   return (
-    <div className="bg-[#313338] font-sans text-gray-100 p-4 rounded-md shadow-sm w-full h-full overflow-y-auto">
-      <div className="flex items-start gap-4 group hover:bg-[#2e3035] -mx-4 px-4 py-2 transition-colors">
+    <div className={`${darkMode ? 'bg-[#313338] text-gray-100' : 'bg-[#ffffff] text-[#313338]'} font-sans p-4 rounded-md shadow-sm w-full h-full overflow-y-auto transition-colors`}>
+      <div className={`flex items-start gap-4 group ${darkMode ? 'hover:bg-[#2e3035]' : 'hover:bg-[#f2f3f5]'} -mx-4 px-4 py-2 transition-colors`}>
         {/* Avatar */}
         <div className="flex-shrink-0 mt-0.5 cursor-pointer">
           {isValidUrl(avatarUrl) ? (
@@ -74,27 +84,27 @@ export const MessagePreview: React.FC<PreviewProps> = ({ message, webhookData })
         <div className="flex-1 min-w-0">
           {/* Header */}
           <div className="flex items-center gap-2">
-            <span className="font-medium text-white hover:underline cursor-pointer">
+            <span className={`font-medium ${darkMode ? 'text-white' : 'text-[#060607]'} hover:underline cursor-pointer`}>
               {username}
             </span>
             <span className="bg-[#5865F2] text-white text-[10px] px-1 rounded-[3px] h-[15px] flex items-center font-medium">
               BOT
             </span>
-            <span className="text-xs text-[#949BA4] ml-1">
+            <span className={`text-xs ${darkMode ? 'text-[#949BA4]' : 'text-[#5c5e66]'} ml-1`}>
               Today at {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </span>
           </div>
 
           {/* Message Body */}
           {message.content && (
-            <div className="text-[#dbdee1] whitespace-pre-wrap mt-1 leading-[1.375rem]">
-              <MarkdownRenderer content={message.content} />
+            <div className={`${darkMode ? 'text-[#dbdee1]' : 'text-[#313338]'} whitespace-pre-wrap mt-1 leading-[1.375rem]`}>
+              <MarkdownRenderer content={message.content} darkMode={darkMode} />
             </div>
           )}
 
           {/* Embeds */}
           {message.embeds && message.embeds.map((embed, index) => (
-            <EmbedPreview key={index} embed={embed} />
+            <EmbedPreview key={index} embed={embed} darkMode={darkMode} />
           ))}
 
           {/* Files (Attachments) */}
@@ -112,20 +122,20 @@ export const MessagePreview: React.FC<PreviewProps> = ({ message, webhookData })
                                 />
                             </div>
                         ) : (
-                            <div className="flex items-center gap-3 bg-[#2B2D31] p-3 rounded-[4px] border border-[#1E1F22] max-w-xs">
+                            <div className={`flex items-center gap-3 ${darkMode ? 'bg-[#2B2D31] border-[#1E1F22]' : 'bg-[#f2f3f5] border-[#e3e5e8]'} p-3 rounded-[4px] border max-w-xs`}>
                                 <div className="w-8 h-8 flex items-center justify-center">
                                     <svg width="30" height="40" viewBox="0 0 30 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                        <path d="M0 4C0 1.79086 1.79086 0 4 0H18L30 12V36C30 38.2091 28.2091 40 26 40H4C1.79086 40 0 38.2091 0 36V4Z" fill="#2B2D31"/>
-                                        <path d="M20 2L28 10H20V2Z" fill="#1E1F22"/>
-                                        <path d="M0 4C0 1.79086 1.79086 0 4 0H18V12H30V36C30 38.2091 28.2091 40 26 40H4C1.79086 40 0 38.2091 0 36V4Z" stroke="#1E1F22" strokeWidth="2"/>
+                                        <path d="M0 4C0 1.79086 1.79086 0 4 0H18L30 12V36C30 38.2091 28.2091 40 26 40H4C1.79086 40 0 38.2091 0 36V4Z" fill={darkMode ? "#2B2D31" : "#f2f3f5"}/>
+                                        <path d="M20 2L28 10H20V2Z" fill={darkMode ? "#1E1F22" : "#e3e5e8"}/>
+                                        <path d="M0 4C0 1.79086 1.79086 0 4 0H18V12H30V36C30 38.2091 28.2091 40 26 40H4C1.79086 40 0 38.2091 0 36V4Z" stroke={darkMode ? "#1E1F22" : "#e3e5e8"} strokeWidth="2"/>
                                     </svg>
                                 </div>
                                 <div className="flex flex-col min-w-0">
                                     <span className="text-[#00A8FC] text-sm font-medium truncate hover:underline cursor-pointer">{file.name}</span>
-                                    <span className="text-[#949BA4] text-xs">{file.file ? (file.file.size / 1024).toFixed(2) + ' KB' : 'Unknown Size'}</span>
+                                    <span className={`${darkMode ? 'text-[#949BA4]' : 'text-[#5c5e66]'} text-xs`}>{file.file ? (file.file.size / 1024).toFixed(2) + ' KB' : 'Unknown Size'}</span>
                                 </div>
                                 <div className="ml-auto">
-                                    <svg className="w-6 h-6 text-[#B5BAC1] cursor-pointer hover:text-[#dbdee1]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <svg className={`w-6 h-6 ${darkMode ? 'text-[#B5BAC1] hover:text-[#dbdee1]' : 'text-[#5c5e66] hover:text-[#313338]'} cursor-pointer`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                                         <polyline points="7 10 12 15 17 10" />
                                         <line x1="12" y1="15" x2="12" y2="3" />
@@ -187,35 +197,35 @@ const ExternalLinkIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-const EmbedPreview: React.FC<{ embed: DiscordEmbed }> = ({ embed }) => {
-  const borderColor = embed.color ? `#${embed.color.toString(16).padStart(6, '0')}` : '#1E1F22';
+const EmbedPreview: React.FC<{ embed: DiscordEmbed, darkMode?: boolean }> = ({ embed, darkMode = true }) => {
+  const borderColor = embed.color ? `#${embed.color.toString(16).padStart(6, '0')}` : (darkMode ? '#1E1F22' : '#e3e5e8');
 
   return (
     <div
-      className="mt-2 bg-[#2B2D31] rounded-[4px] border-l-4 grid max-w-[520px] w-full"
+      className={`mt-2 ${darkMode ? 'bg-[#2B2D31]' : 'bg-[#f2f3f5]'} rounded-[4px] border-l-4 grid max-w-[520px] w-full`}
       style={{ borderLeftColor: borderColor }}
     >
       <div className="grid grid-cols-[1fr_auto] p-4 gap-4">
         <div className="min-w-0 space-y-2">
           {/* Author */}
           {embed.author?.name && (
-            <div className="flex items-center gap-2 text-sm font-medium">
+            <div className={`flex items-center gap-2 text-sm font-medium ${darkMode ? 'text-white' : 'text-[#060607]'}`}>
               {isValidUrl(embed.author.icon_url) && (
                 <img src={embed.author.icon_url} alt="" className="w-6 h-6 rounded-full object-cover" referrerPolicy="no-referrer" />
               )}
               {embed.author.url ? (
-                <a href={embed.author.url} target="_blank" rel="noreferrer" className="text-white hover:underline truncate">
+                <a href={embed.author.url} target="_blank" rel="noreferrer" className="hover:underline truncate">
                   {embed.author.name}
                 </a>
               ) : (
-                <span className="text-white truncate">{embed.author.name}</span>
+                <span className="truncate">{embed.author.name}</span>
               )}
             </div>
           )}
 
           {/* Title */}
           {embed.title && (
-            <div className="text-base font-semibold text-white truncate">
+            <div className={`text-base font-semibold ${darkMode ? 'text-white' : 'text-[#060607]'} truncate`}>
               {embed.url ? (
                 <a href={embed.url} target="_blank" rel="noreferrer" className="text-[#00A8FC] hover:underline">
                   {embed.title}
@@ -228,8 +238,8 @@ const EmbedPreview: React.FC<{ embed: DiscordEmbed }> = ({ embed }) => {
 
           {/* Description */}
           {embed.description && (
-            <div className="text-sm text-[#dbdee1] whitespace-pre-wrap leading-[1.375rem]">
-              <MarkdownRenderer content={embed.description} />
+            <div className={`text-sm ${darkMode ? 'text-[#dbdee1]' : 'text-[#313338]'} whitespace-pre-wrap leading-[1.375rem]`}>
+              <MarkdownRenderer content={embed.description} darkMode={darkMode} />
             </div>
           )}
 
@@ -238,9 +248,9 @@ const EmbedPreview: React.FC<{ embed: DiscordEmbed }> = ({ embed }) => {
             <div className="grid gap-2 mt-2 grid-cols-12">
               {embed.fields.map((field, i) => (
                 <div key={i} className={cn("col-span-12", field.inline && "sm:col-span-4")}>
-                  <div className="text-sm font-semibold text-[#dbdee1] mb-1">{field.name}</div>
-                  <div className="text-sm text-[#dbdee1] whitespace-pre-wrap leading-[1.375rem]">
-                    <MarkdownRenderer content={field.value} />
+                  <div className={`text-sm font-semibold ${darkMode ? 'text-[#dbdee1]' : 'text-[#313338]'} mb-1`}>{field.name}</div>
+                  <div className={`text-sm ${darkMode ? 'text-[#dbdee1]' : 'text-[#313338]'} whitespace-pre-wrap leading-[1.375rem]`}>
+                    <MarkdownRenderer content={field.value} darkMode={darkMode} />
                   </div>
                 </div>
               ))}
@@ -275,7 +285,7 @@ const EmbedPreview: React.FC<{ embed: DiscordEmbed }> = ({ embed }) => {
 
       {/* Footer */}
       {(embed.footer?.text || embed.timestamp) && (
-        <div className="px-4 pb-4 pt-0 flex items-center gap-2 text-xs text-[#949BA4]">
+        <div className={`px-4 pb-4 pt-0 flex items-center gap-2 text-xs ${darkMode ? 'text-[#949BA4]' : 'text-[#5c5e66]'}`}>
           {isValidUrl(embed.footer?.icon_url) && (
             <img src={embed.footer!.icon_url} alt="" className="w-5 h-5 rounded-full object-cover" referrerPolicy="no-referrer" />
           )}

@@ -1,11 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { DiscordWebhookMessage } from '@/types';
-import Prism from 'prismjs';
-import 'prismjs/components/prism-python';
-import 'prismjs/themes/prism-tomorrow.css';
-import Editor from 'react-simple-code-editor';
+import Editor from '@monaco-editor/react';
 import { AlertCircle, Check, Copy, Undo, Redo } from 'lucide-react';
 import { toast } from 'sonner';
+import { playButtonSound } from '@/utils/sounds';
 
 interface CodeEditorProps {
   message: DiscordWebhookMessage;
@@ -19,9 +17,8 @@ interface CodeEditorProps {
 export const CodeEditor: React.FC<CodeEditorProps> = ({ message, onChange, onUndo, onRedo, canUndo, canRedo }) => {
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [lineCount, setLineCount] = useState(1);
+  const isTyping = useRef(false);
 
-  // Convert message to Python-dict style string
   const messageToPython = (msg: DiscordWebhookMessage) => {
     try {
       const json = JSON.stringify(msg, null, 4);
@@ -29,25 +26,22 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({ message, onChange, onUnd
         .replace(/true/g, 'True')
         .replace(/false/g, 'False')
         .replace(/null/g, 'None');
-    } catch (e) {
+    } catch {
       return '';
     }
   };
 
-  // Initialize code from message
   useEffect(() => {
-    const newCode = messageToPython(message);
-    if (newCode !== code) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setCode(newCode);
-        setLineCount(newCode.split('\n').length);
+    if (!isTyping.current) {
+      setCode(messageToPython(message));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/set-state-in-effect
   }, [message]);
 
-  const handleCodeChange = (newCode: string) => {
+  const handleCodeChange = (newCode: string | undefined) => {
+    if (newCode === undefined) return;
     setCode(newCode);
-    setLineCount(newCode.split('\n').length);
+    isTyping.current = true;
     try {
       const jsonString = newCode
         .replace(/True/g, 'true')
@@ -59,12 +53,21 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({ message, onChange, onUnd
       const parsed = JSON.parse(jsonString);
       setError(null);
       onChange(parsed);
-    } catch {
-       // Ignore
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError(String(err));
+      }
     }
+    
+    setTimeout(() => {
+      isTyping.current = false;
+    }, 1000);
   };
 
   const copyCode = () => {
+    playButtonSound();
     navigator.clipboard.writeText(code);
     toast.success("Code copied to clipboard");
   };
@@ -81,18 +84,18 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({ message, onChange, onUnd
         </div>
         <div className="flex items-center gap-2">
            {onUndo && (
-             <button onClick={onUndo} disabled={!canUndo} className="text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors disabled:opacity-30">
+             <button onClick={() => { playButtonSound(); onUndo(); }} disabled={!canUndo} className="text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors disabled:opacity-30">
                <Undo className="w-3 h-3" />
              </button>
            )}
            {onRedo && (
-             <button onClick={onRedo} disabled={!canRedo} className="text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors disabled:opacity-30">
+             <button onClick={() => { playButtonSound(); onRedo(); }} disabled={!canRedo} className="text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors disabled:opacity-30">
                <Redo className="w-3 h-3" />
              </button>
            )}
            <div className="w-px h-4 bg-zinc-300 dark:bg-zinc-700 mx-1" />
            {error ? (
-             <span className="flex items-center gap-1 text-red-600 dark:text-red-400 text-xs bg-red-100 dark:bg-red-900/20 px-2 py-0.5 rounded">
+             <span className="flex items-center gap-1 text-red-600 dark:text-red-400 text-xs bg-red-100 dark:bg-red-900/20 px-2 py-0.5 rounded" title={error}>
                <AlertCircle className="w-3 h-3" /> Syntax Error
              </span>
            ) : (
@@ -100,59 +103,34 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({ message, onChange, onUnd
                <Check className="w-3 h-3" /> Valid
              </span>
            )}
-           <button onClick={copyCode} className="text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors">
+           <div className="w-px h-4 bg-zinc-300 dark:bg-zinc-700 mx-1" />
+           <button 
+             onClick={copyCode}
+             className="flex items-center gap-1 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+             title="Copy Code"
+           >
              <Copy className="w-3 h-3" />
            </button>
         </div>
       </div>
-
-      {/* Editor Area with Line Numbers */}
-      <div className="flex-1 overflow-hidden relative flex">
-        {/* Line Numbers */}
-        <div className="w-10 bg-[#1e1e1e] text-zinc-600 text-right pr-2 pt-4 font-mono text-sm select-none border-r border-zinc-800">
-          {Array.from({ length: lineCount }).map((_, i) => (
-            <div key={i} className="leading-[1.5]">{i + 1}</div>
-          ))}
-        </div>
-
-        {/* Code Editor */}
-        <div className="flex-1 overflow-auto custom-scrollbar relative">
-          <Editor
-            value={code}
-            onValueChange={handleCodeChange}
-            highlight={code => Prism.highlight(code, Prism.languages.python, 'python')}
-            padding={16}
-            className="font-mono text-sm min-h-full"
-            style={{
-              fontFamily: '"Fira Code", "Fira Mono", monospace',
-              fontSize: 14,
-              backgroundColor: '#1e1e1e',
-              color: '#d4d4d4',
-              lineHeight: '1.5',
-            }}
-            textareaClassName="focus:outline-none"
-          />
-        </div>
-        
-        {/* Minimap Simulation */}
-        <div className="w-16 bg-[#1e1e1e] border-l border-zinc-800 hidden sm:block opacity-50 pointer-events-none overflow-hidden">
-           <div className="transform scale-[0.15] origin-top-left w-[600%] p-2 font-mono text-xs text-zinc-400 whitespace-pre">
-             {code}
-           </div>
-        </div>
-      </div>
-
-      {/* Status Bar */}
-      <div className="bg-[#007acc] text-white px-3 py-1 text-[10px] flex justify-between items-center font-sans select-none">
-        <div className="flex gap-4">
-          <span>main*</span>
-          <span>Python</span>
-        </div>
-        <div className="flex gap-4">
-          <span>Ln {lineCount}, Col 1</span>
-          <span>UTF-8</span>
-          <span>Spaces: 4</span>
-        </div>
+      <div className="flex-1 overflow-hidden">
+        <Editor
+          height="100%"
+          defaultLanguage="python"
+          theme="vs-dark"
+          value={code}
+          onChange={handleCodeChange}
+          options={{
+            minimap: { enabled: false },
+            fontSize: 14,
+            wordWrap: 'on',
+            scrollBeyondLastLine: false,
+            smoothScrolling: true,
+            cursorBlinking: 'smooth',
+            cursorSmoothCaretAnimation: 'on',
+            formatOnPaste: true,
+          }}
+        />
       </div>
     </div>
   );

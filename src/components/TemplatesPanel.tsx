@@ -6,28 +6,6 @@ import { useAuth } from '../context/AuthContext';
 import { db } from '../lib/firebase';
 import { collection, addDoc, query, where, getDocs, deleteDoc, doc, orderBy } from 'firebase/firestore';
 
-// --- FIXED: Added the missing MOCK_ONLINE_TEMPLATES constant ---
-const MOCK_ONLINE_TEMPLATES: Template[] = [
-  {
-    id: 'mock-1',
-    name: 'Welcome Message',
-    description: 'A clean, professional welcome message for new members.',
-    author: 'System',
-    downloads: 1240,
-    isPublic: true,
-    message: { content: "Welcome to the server! Please read the rules." } as any,
-  },
-  {
-    id: 'mock-2',
-    name: 'Server Announcement',
-    description: 'Bold styling for important community updates.',
-    author: 'Community',
-    downloads: 850,
-    isPublic: true,
-    message: { content: "🚨 New Update Available!" } as any,
-  }
-];
-
 interface Template {
   id: string;
   name: string;
@@ -37,6 +15,7 @@ interface Template {
   message: DiscordWebhookMessage;
   isPublic: boolean;
   downloads: number;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   createdAt?: any;
 }
 
@@ -44,6 +23,46 @@ interface TemplatesPanelProps {
   onApply: (message: DiscordWebhookMessage) => void;
   currentMessage: DiscordWebhookMessage;
 }
+
+const MOCK_ONLINE_TEMPLATES: Template[] = [
+  {
+    id: '1',
+    name: 'Welcome Message',
+    description: 'A friendly welcome message for new members.',
+    author: 'System',
+    isPublic: true,
+    downloads: 120,
+    message: {
+      content: '# Welcome to The Our Server !!\n[A exaple server banner img]\nWe Are Galde That You All Have Supported us That much,\nThanks for joining our server too much.\n\n## Our Goal \n\n[Add Any Text]\n\n** Please read the Rules To Get Started !!! ** #📘 rules',
+      embeds: []
+    }
+  },
+  {
+    id: '2',
+    name: 'Server Update',
+    description: 'Template for announcing server updates.',
+    author: 'System',
+    isPublic: true,
+    downloads: 85,
+    message: {
+      content: '@everyone 📢 **Server Update is Here!**',
+      embeds: [
+        {
+          title: '🚀 Update v2.0.0 - The Big One',
+          description: 'We have been working hard on this update and we are excited to finally share it with you all! This update brings massive improvements to the server infrastructure and new features for everyone to enjoy.',
+          color: 5763719,
+          fields: [
+            { name: '✨ New Features', value: '• Added 3 new voice channels\n• New leveling system with rewards\n• Custom bot commands are now live', inline: false },
+            { name: '🐛 Bug Fixes', value: '• Fixed role assignment issues\n• Resolved lag in music bot\n• Cleaned up old channels', inline: false },
+            { name: '📅 Next Steps', value: 'We will be hosting a community event this weekend to celebrate. Stay tuned for more details!', inline: false }
+          ],
+          footer: { text: 'Thank you for your continued support!' },
+          timestamp: new Date().toISOString()
+        }
+      ]
+    }
+  }
+];
 
 export const TemplatesPanel: React.FC<TemplatesPanelProps> = ({ onApply, currentMessage }) => {
   const { user } = useAuth();
@@ -81,6 +100,7 @@ export const TemplatesPanel: React.FC<TemplatesPanelProps> = ({ onApply, current
       setIsLoading(true);
       try {
           if (!db) {
+              // Fallback to mocks if db is not initialized
               setPublicTemplates(MOCK_ONLINE_TEMPLATES);
               return;
           }
@@ -94,20 +114,26 @@ export const TemplatesPanel: React.FC<TemplatesPanelProps> = ({ onApply, current
           querySnapshot.forEach((doc) => {
               templates.push({ id: doc.id, ...doc.data() } as Template);
           });
+          // Combine with mock templates for demo purposes, or replace them
+          // For now, let's just use the fetched ones + mocks if needed, but let's prioritize fetched
+          // To avoid duplicates if we were mixing, we'd need logic. 
+          // Let's just append fetched to mocks for now to show both.
           setPublicTemplates([...MOCK_ONLINE_TEMPLATES, ...templates]);
       } catch (error) {
           console.error("Error fetching public templates:", error);
+          // Fallback to mocks if error (e.g. permission issues or offline)
           setPublicTemplates(MOCK_ONLINE_TEMPLATES);
       } finally {
           setIsLoading(false);
       }
   }, []);
 
+  // Fetch templates from Firestore when user logs in or tab changes
   useEffect(() => {
     if (activeTab === 'saved' && user) {
         fetchUserTemplates();
     } else if (activeTab === 'saved' && !user) {
-        setSavedTemplates([]);
+        setSavedTemplates([]); // Clear if logged out
     } else if (activeTab === 'online') {
         fetchPublicTemplates();
     }
@@ -116,6 +142,10 @@ export const TemplatesPanel: React.FC<TemplatesPanelProps> = ({ onApply, current
   const handleSaveOrShare = async (isPublic: boolean) => {
     if (!user) {
         toast.error("Please sign in to save templates.");
+        // We can't easily switch tabs from here without context, but the toast is clear.
+        // Ideally, we'd have a global modal state or callback to open Account settings.
+        // For this implementation, we'll rely on the user navigating to Account.
+        // Or we could dispatch a custom event if we wanted to be fancy.
         document.dispatchEvent(new CustomEvent('OPEN_ACCOUNT_SETTINGS'));
         return;
     }
@@ -141,6 +171,7 @@ export const TemplatesPanel: React.FC<TemplatesPanelProps> = ({ onApply, current
         };
 
         await addDoc(collection(db, 'templates'), newTemplate);
+        
         toast.success(isPublic ? "Template shared successfully!" : "Template saved to cloud!");
         
         if (activeTab === 'saved') {
@@ -156,6 +187,7 @@ export const TemplatesPanel: React.FC<TemplatesPanelProps> = ({ onApply, current
 
   const deleteTemplate = async (id: string) => {
     if (!confirm("Delete this template?")) return;
+    
     try {
         if (!db) return;
         await deleteDoc(doc(db, 'templates', id));
@@ -228,6 +260,7 @@ export const TemplatesPanel: React.FC<TemplatesPanelProps> = ({ onApply, current
                     template={template} 
                     onApply={onApply} 
                     onDelete={() => deleteTemplate(template.id)}
+                    // onShare={() => handleSaveOrShare(true)} // Re-share?
                 />
                 ))
             ) : (
@@ -250,6 +283,7 @@ export const TemplatesPanel: React.FC<TemplatesPanelProps> = ({ onApply, current
         )}
       </div>
 
+      {/* Floating Action Button */}
       <div className="absolute bottom-6 right-6 flex flex-col gap-3 items-end">
         <div className="group relative flex items-center gap-2">
             <span className="absolute right-12 bg-black/80 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">

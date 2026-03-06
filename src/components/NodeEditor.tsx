@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ReactFlow, Background, Controls, MiniMap, useNodesState, useEdgesState, addEdge, Connection, Edge, Node, Handle, Position, useReactFlow, ReactFlowProvider, NodeProps } from 'reactflow';
+import { ReactFlow, Background, Controls, useNodesState, useEdgesState, addEdge, Connection, Edge, Node, Handle, Position, useReactFlow, ReactFlowProvider, NodeProps } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { DiscordWebhookMessage, DiscordEmbed, DiscordEmbedField } from '@/types';
 import { intToHex, hexToInt } from '@/utils';
 import { Trash2, Scissors, Undo, Redo, Plus } from 'lucide-react';
+import { playButtonSound } from '@/utils/sounds';
 
 // --- Custom Nodes ---
 
@@ -31,7 +32,7 @@ const StringNode = ({ data, id }: NodeProps) => {
     <div className="px-4 py-2 shadow-md rounded-md bg-white dark:bg-zinc-800 border border-zinc-600 min-w-[200px] relative group">
       <div className="flex justify-between items-center mb-2">
         <div className="font-bold text-xs text-zinc-400">{data.label}</div>
-        <button onClick={deleteNode} className="text-zinc-500 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button onClick={() => { playButtonSound(); deleteNode(); }} className="text-zinc-500 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
             <Trash2 className="w-3 h-3" />
         </button>
       </div>
@@ -54,7 +55,7 @@ const EmbedNode = ({ data, id }: NodeProps) => {
     <div className="px-4 py-2 shadow-md rounded-md bg-white dark:bg-zinc-800 border-2 border-purple-500 min-w-[180px] relative group">
       <div className="flex justify-between items-center mb-2 border-b border-zinc-700 pb-1">
         <div className="font-bold text-sm text-center flex-1">Embed</div>
-        <button onClick={deleteNode} className="text-zinc-500 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity absolute right-0 top-0">
+        <button onClick={() => { playButtonSound(); deleteNode(); }} className="text-zinc-500 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity absolute right-0 top-0">
             <Trash2 className="w-3 h-3" />
         </button>
       </div>
@@ -80,6 +81,10 @@ const EmbedNode = ({ data, id }: NodeProps) => {
         <Handle type="target" position={Position.Left} id="fields" className="!bg-green-500" />
         <div className="text-xs text-zinc-500 dark:text-zinc-400 ml-2">Fields</div>
       </div>
+      <div className="relative py-1">
+        <Handle type="target" position={Position.Left} id="image" className="!bg-pink-500" />
+        <div className="text-xs text-zinc-500 dark:text-zinc-400 ml-2">Image URL</div>
+      </div>
 
       <Handle type="source" position={Position.Right} className="!bg-purple-500" />
     </div>
@@ -94,7 +99,7 @@ const FieldNode = ({ data, id }: NodeProps) => {
     <div className="px-4 py-2 shadow-md rounded-md bg-white dark:bg-zinc-800 border-2 border-green-500 min-w-[200px] relative group">
       <div className="flex justify-between items-center mb-2 border-b border-zinc-700 pb-1">
         <div className="font-bold text-sm text-center flex-1">Field</div>
-        <button onClick={deleteNode} className="text-zinc-500 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity absolute right-0 top-0">
+        <button onClick={() => { playButtonSound(); deleteNode(); }} className="text-zinc-500 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity absolute right-0 top-0">
             <Trash2 className="w-3 h-3" />
         </button>
       </div>
@@ -161,6 +166,7 @@ const NodeEditorContent: React.FC<NodeEditorProps> = ({ message, onChange }) => 
   }, [nodes, edges, historyIndex]);
 
   const undo = () => {
+    playButtonSound();
     if (historyIndex > 0) {
         const newIndex = historyIndex - 1;
         const state = history[newIndex];
@@ -171,6 +177,7 @@ const NodeEditorContent: React.FC<NodeEditorProps> = ({ message, onChange }) => 
   };
 
   const redo = () => {
+    playButtonSound();
     if (historyIndex < history.length - 1) {
         const newIndex = historyIndex + 1;
         const state = history[newIndex];
@@ -276,6 +283,18 @@ const NodeEditorContent: React.FC<NodeEditorProps> = ({ message, onChange }) => 
           initialEdges.push({ id: `e-desc-${i}`, source: descId, target: embedId, targetHandle: 'description' });
         }
 
+        // Image
+        if (embed.image?.url) {
+          const imageId = `image-${i}`;
+          initialNodes.push({
+            id: imageId,
+            type: 'stringNode',
+            position: { x: x - 600, y: embedY + 175 },
+            data: { value: embed.image.url, label: 'Image URL', onChange: updateStringNode },
+          });
+          initialEdges.push({ id: `e-image-${i}`, source: imageId, target: embedId, targetHandle: 'image' });
+        }
+
         // Fields
         if (embed.fields) {
            embed.fields.forEach((field, fIndex) => {
@@ -295,7 +314,6 @@ const NodeEditorContent: React.FC<NodeEditorProps> = ({ message, onChange }) => 
     setNodes(initialNodes);
     setEdges(initialEdges);
     // Initial snapshot
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setHistory([{ nodes: initialNodes, edges: initialEdges }]);
     setHistoryIndex(0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -349,6 +367,13 @@ const NodeEditorContent: React.FC<NodeEditorProps> = ({ message, onChange }) => 
         if (descNode) embed.description = descNode.data.value;
       }
 
+      // Find Image
+      const imageEdge = edges.find(e => e.target === embedNode.id && e.targetHandle === 'image');
+      if (imageEdge) {
+        const imageNode = nodes.find(n => n.id === imageEdge.source);
+        if (imageNode) embed.image = { url: imageNode.data.value };
+      }
+
       // Find Fields
       const fieldEdges = edges.filter(e => e.target === embedNode.id && e.targetHandle === 'fields');
       fieldEdges.sort((a, b) => {
@@ -374,6 +399,7 @@ const NodeEditorContent: React.FC<NodeEditorProps> = ({ message, onChange }) => 
     newMessage.embeds = newEmbeds;
     onChange(newMessage);
 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodes, edges]);
 
   const onConnect = useCallback((params: Connection) => {
@@ -392,6 +418,7 @@ const NodeEditorContent: React.FC<NodeEditorProps> = ({ message, onChange }) => 
   }, [takeSnapshot]);
 
   const addNode = (type: string) => {
+    playButtonSound();
     const id = `${type}-${Date.now()}`;
     const newNode: Node = {
       id,
@@ -423,7 +450,7 @@ const NodeEditorContent: React.FC<NodeEditorProps> = ({ message, onChange }) => 
         <div className="flex gap-2 items-center">
             <div className="w-px h-4 bg-zinc-300 dark:bg-zinc-700 mx-1" />
             <button 
-                onClick={() => setCutMode(!cutMode)} 
+                onClick={() => { playButtonSound(); setCutMode(!cutMode); }} 
                 className={`p-1.5 rounded transition-colors ${cutMode ? 'bg-red-500/20 text-red-500' : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'}`}
                 title="Cut Mode (Click edge to delete)"
             >
@@ -454,7 +481,6 @@ const NodeEditorContent: React.FC<NodeEditorProps> = ({ message, onChange }) => 
           <Background color="#888" gap={16} className="dark:hidden" />
           <Background color="#333" gap={16} className="hidden dark:block" />
           <Controls className="!bg-white dark:!bg-[#1e1e1e] !border-zinc-200 dark:!border-zinc-700 [&>button]:!border-zinc-200 dark:[&>button]:!border-zinc-700 [&>button]:!fill-zinc-700 dark:[&>button]:!fill-zinc-400 hover:[&>button]:!bg-zinc-100 dark:hover:[&>button]:!bg-zinc-800" />
-          <MiniMap style={{ background: 'transparent' }} nodeColor={() => '#888'} className="!bg-white dark:!bg-[#222] border border-zinc-200 dark:border-zinc-800" />
         </ReactFlow>
       </div>
     </div>

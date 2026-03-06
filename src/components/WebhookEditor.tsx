@@ -4,7 +4,8 @@ import { intToHex, hexToInt, cn } from '@/utils';
 import { Plus, Trash2, ChevronDown, ChevronUp, Image as ImageIcon, Link as LinkIcon, Type, Paperclip, MousePointerClick, Smile, Bot } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { v4 as uuidv4 } from 'uuid';
-import { CustomSelect, CustomColorPicker } from './ui/CustomInputs';
+import { playButtonSound } from '@/utils/sounds';
+import { CustomSelect, CustomColorPicker, CustomDatePicker } from './ui/CustomInputs';
 
 interface EditorProps {
   message: DiscordWebhookMessage;
@@ -21,50 +22,58 @@ interface EditorProps {
 }
 
 export const WebhookEditor: React.FC<EditorProps> = ({ message, onChange, webhookUrl, setWebhookUrl, onSend, isSending, addLog, webhookData, editingMessageId, onCancelEdit, autoCorrectEnabled }) => {
-  // TEST LABEL FOR RENDER CHECK
-  // REMOVE THIS AFTER CONFIRMING UI UPDATE
-  const testLabel = <div style={{background:'#ff0',color:'#000',padding:'4px',marginBottom:'8px',fontWeight:'bold'}}>TEST: WebhookEditor UI Updated</div>;
-
-  const [loading, setLoading] = useState(false);
+  const [isLoadingWebhook, setIsLoadingWebhook] = useState(false);
   const [pingEveryone, setPingEveryone] = useState(false);
+  const [showInvalidUrlModal, setShowInvalidUrlModal] = useState(false);
+
+  const handleLoadWebhook = async () => {
+    if (!webhookUrl) return;
+    
+    // Basic validation for Discord webhook URL
+    const isValidDiscordWebhook = /^https:\/\/(discord|discordapp)\.com\/api\/webhooks\/[^/]+\/[^/]+/.test(webhookUrl);
+    
+    if (!isValidDiscordWebhook) {
+      setShowInvalidUrlModal(true);
+      return;
+    }
+
+    await executeLoadWebhook();
+  };
+
+  const executeLoadWebhook = async () => {
+    setIsLoadingWebhook(true);
+    await new Promise(r => setTimeout(r, 800));
+    setIsLoadingWebhook(false);
+    setShowInvalidUrlModal(false);
+  };
+
+  const handleCancelLoad = () => {
+    setWebhookUrl('');
+    setShowInvalidUrlModal(false);
+  };
+
+  const handlePingEveryoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const checked = e.target.checked;
+    setPingEveryone(checked);
+    if (checked) {
+      if (!message.content?.includes('[Ping: @everyone]')) {
+        updateMessage({ content: `[Ping: @everyone]\n${message.content || ''}` });
+      }
+    } else {
+      if (message.content?.includes('[Ping: @everyone]\n')) {
+        updateMessage({ content: message.content.replace('[Ping: @everyone]\n', '') });
+      } else if (message.content?.includes('[Ping: @everyone]')) {
+        updateMessage({ content: message.content.replace('[Ping: @everyone]', '') });
+      }
+    }
+  };
 
   const updateMessage = (updates: Partial<DiscordWebhookMessage>) => {
     onChange({ ...message, ...updates });
   };
 
-  // Handle Load button and Enter key
-  const handleLoad = async () => {
-    setLoading(true);
-    // Simulate loading delay (replace with actual logic if needed)
-    await new Promise((res) => setTimeout(res, 1200));
-    setLoading(false);
-    // Trigger webhook apply logic (simulate Enter)
-    // You may want to call a prop or function here
-    // For now, just call onSend if available
-    if (onSend) onSend();
-  };
-
-  const handleWebhookInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      handleLoad();
-    }
-  };
-
-  // Ping Everyone logic
-  React.useEffect(() => {
-    if (pingEveryone) {
-      if (!message.content?.includes('[Ping: @everyone]')) {
-        updateMessage({ content: `[Ping: @everyone]\n${message.content || ''}` });
-      }
-    } else {
-      if (message.content?.includes('[Ping: @everyone]')) {
-        updateMessage({ content: (message.content || '').replace(/^\[Ping: @everyone\]\n?/, '') });
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pingEveryone]);
-
   const addEmbed = () => {
+    playButtonSound();
     const newEmbed: DiscordEmbed = {
       title: "New Embed",
       description: "Description here...",
@@ -81,6 +90,7 @@ export const WebhookEditor: React.FC<EditorProps> = ({ message, onChange, webhoo
   };
 
   const removeEmbed = (index: number) => {
+    playButtonSound();
     const newEmbeds = [...(message.embeds || [])];
     newEmbeds.splice(index, 1);
     updateMessage({ embeds: newEmbeds });
@@ -101,6 +111,7 @@ export const WebhookEditor: React.FC<EditorProps> = ({ message, onChange, webhoo
   };
 
   const removeFile = (index: number) => {
+    playButtonSound();
     const newFiles = [...(message.files || [])];
     const removed = newFiles.splice(index, 1);
     updateMessage({ files: newFiles });
@@ -108,6 +119,7 @@ export const WebhookEditor: React.FC<EditorProps> = ({ message, onChange, webhoo
   };
 
   const addComponent = () => {
+    playButtonSound();
     // Add a new Action Row with one button
     const newComponent: DiscordComponent = {
       type: 1,
@@ -135,6 +147,7 @@ export const WebhookEditor: React.FC<EditorProps> = ({ message, onChange, webhoo
   };
 
   const addButtonToRow = (rowIndex: number) => {
+    playButtonSound();
     const newComponents = [...(message.components || [])];
     const newRow = { ...newComponents[rowIndex] };
     if (newRow.components.length >= 5) return;
@@ -154,12 +167,14 @@ export const WebhookEditor: React.FC<EditorProps> = ({ message, onChange, webhoo
   };
 
   const removeComponentRow = (index: number) => {
+    playButtonSound();
     const newComponents = [...(message.components || [])];
     newComponents.splice(index, 1);
     updateMessage({ components: newComponents });
   };
 
   const removeButton = (rowIndex: number, btnIndex: number) => {
+    playButtonSound();
     const newComponents = [...(message.components || [])];
     const newRow = { ...newComponents[rowIndex] };
     const newButtons = [...newRow.components];
@@ -177,7 +192,6 @@ export const WebhookEditor: React.FC<EditorProps> = ({ message, onChange, webhoo
 
   return (
     <div className="space-y-6 text-sm pb-20">
-      {testLabel}
       
       {/* Editing Banner */}
       {editingMessageId && (
@@ -206,44 +220,35 @@ export const WebhookEditor: React.FC<EditorProps> = ({ message, onChange, webhoo
         
         <div className="space-y-2">
           <label className="block font-medium text-zinc-700 dark:text-zinc-300">Webhook URL</label>
-          <div className="flex gap-2 items-center">
+          <div className="flex gap-2">
             <input
               type="text"
               value={webhookUrl}
               onChange={(e) => setWebhookUrl(e.target.value)}
-              onKeyDown={handleWebhookInputKeyDown}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleLoadWebhook();
+                }
+              }}
               placeholder="https://discord.com/api/webhooks/..."
               className="flex-1 bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-cyan-500 dark:text-white transition-all"
             />
             <button
-              type="button"
-              onClick={handleLoad}
-              disabled={loading}
-              className="relative flex items-center justify-center px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-md font-medium transition-colors min-w-[48px]"
+              onClick={handleLoadWebhook}
+              disabled={isLoadingWebhook || !webhookUrl}
+              className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-md font-medium transition-colors flex items-center justify-center min-w-[80px]"
             >
-              {loading ? (
-                <span className="flex gap-1">
-                  <span className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-                  <span className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-                  <span className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
-                </span>
+              {isLoadingWebhook ? (
+                <div className="flex gap-1">
+                  <div className="w-1.5 h-1.5 bg-white rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <div className="w-1.5 h-1.5 bg-white rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <div className="w-1.5 h-1.5 bg-white rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                </div>
               ) : (
-                'Load'
+                "Load"
               )}
             </button>
           </div>
-        </div>
-
-        {/* Ping Everyone Checkbox */}
-        <div className="flex items-center gap-2 mt-2">
-          <input
-            type="checkbox"
-            id="ping-everyone"
-            checked={pingEveryone}
-            onChange={e => setPingEveryone(e.target.checked)}
-            className="accent-cyan-600 w-4 h-4"
-          />
-          <label htmlFor="ping-everyone" className="text-zinc-700 dark:text-zinc-300 text-sm select-none">Ping Everyone to announce</label>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -281,9 +286,23 @@ export const WebhookEditor: React.FC<EditorProps> = ({ message, onChange, webhoo
 
       {/* Message Content */}
       <div className="space-y-4 bg-white dark:bg-zinc-900 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
-        <h2 className="text-lg font-semibold text-zinc-900 dark:text-white flex items-center gap-2">
-          <Type className="w-5 h-5" /> Message Content
-        </h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-zinc-900 dark:text-white flex items-center gap-2">
+            <Type className="w-5 h-5" /> Message Content
+          </h2>
+          <label className="flex items-center gap-3 text-sm font-medium text-zinc-600 dark:text-zinc-400 cursor-pointer group">
+            <div className="relative">
+              <input 
+                type="checkbox" 
+                checked={pingEveryone}
+                onChange={handlePingEveryoneChange}
+                className="sr-only peer"
+              />
+              <div className="w-10 h-5 bg-zinc-200 dark:bg-zinc-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-cyan-500 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-cyan-600"></div>
+            </div>
+            <span className="group-hover:text-zinc-900 dark:group-hover:text-white transition-colors">Ping Everyone to announce</span>
+          </label>
+        </div>
         <textarea
           value={message.content || ''}
           onChange={(e) => updateMessage({ content: e.target.value })}
@@ -492,19 +511,55 @@ export const WebhookEditor: React.FC<EditorProps> = ({ message, onChange, webhoo
             </button>
         )}
         <button
-          onClick={onSend}
+          onClick={() => { playButtonSound(); onSend(); }}
           disabled={isSending || !webhookUrl}
           className={cn(
-            "flex-1 py-3 rounded-xl font-bold text-white shadow-lg transition-all transform active:scale-[0.99]",
+            "flex-1 py-3 rounded-xl font-bold text-white shadow-lg transition-all",
             !webhookUrl ? "bg-zinc-400 cursor-not-allowed" : 
             isSending ? "bg-cyan-400 cursor-wait" : 
-            editingMessageId ? "bg-amber-600 hover:bg-amber-500 hover:shadow-amber-500/25" :
-            "bg-cyan-600 hover:bg-cyan-500 hover:shadow-cyan-500/25"
+            editingMessageId ? "bg-amber-600 hover:bg-amber-500 hover:shadow-amber-500/25 active:scale-[0.99]" :
+            "bg-cyan-600 hover:bg-cyan-500 hover:shadow-cyan-500/25 active:scale-[0.99]"
           )}
         >
           {isSending ? (editingMessageId ? "Updating..." : "Sending...") : (editingMessageId ? "Update Message" : "Send Message")}
         </button>
       </div>
+      {/* Invalid Webhook URL Modal */}
+      <AnimatePresence>
+        {showInvalidUrlModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white dark:bg-zinc-900 rounded-xl shadow-2xl w-full max-w-md overflow-hidden border border-zinc-200 dark:border-zinc-800"
+            >
+              <div className="p-6">
+                <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-2">
+                  URL Don'nt Recognized
+                </h3>
+                <p className="text-zinc-600 dark:text-zinc-400 mb-6">
+                  The WebHook URL Is Not Matching With Discord's WebHook Data Base. Are You Sure You Want To Load It? If You Proceed, The App Will Try To Load The WebHook Data From The URL You Provided, But It May Fail If The URL Is Invalid Or Not A WebHook URL.
+                </p>
+                <div className="flex justify-end gap-3">
+                  <button
+                    onClick={handleCancelLoad}
+                    className="px-4 py-2 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={executeLoadWebhook}
+                    className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors font-medium shadow-sm"
+                  >
+                    Load It Anyway
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
@@ -536,7 +591,7 @@ const EmbedEditorItem: React.FC<{
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={(e) => { e.stopPropagation(); onRemove(); }}
+            onClick={(e) => { e.stopPropagation(); playButtonSound(); onRemove(); }}
             className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
           >
             <Trash2 className="w-4 h-4" />
@@ -624,11 +679,9 @@ const EmbedEditorItem: React.FC<{
             </div>
             <div className="space-y-2">
               <label className="block text-xs font-medium text-zinc-500 uppercase">Timestamp</label>
-               <input
-                  type="datetime-local"
-                  // Simple handling for now, could be better
-                  onChange={(e) => onChange({ timestamp: e.target.value ? new Date(e.target.value).toISOString() : undefined })}
-                  className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded-md px-3 py-2 text-sm dark:text-white"
+               <CustomDatePicker
+                  value={embed.timestamp || ''}
+                  onChange={(val) => onChange({ timestamp: val || undefined })}
                 />
             </div>
           </div>

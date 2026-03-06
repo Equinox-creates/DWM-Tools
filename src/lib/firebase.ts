@@ -22,10 +22,8 @@ if (firebaseConfig.apiKey) {
   console.warn("Firebase API key is missing. Firebase features will be disabled.");
   // We can't easily mock the entire Auth/Firestore SDKs. 
   // Consumers must check if auth/db are defined.
-  // Casting to any to avoid strict type errors in consumers for now, 
-  // but ideally consumers should handle null.
-  auth = null as any;
-  db = null as any;
+  auth = null as unknown as Auth;
+  db = null as unknown as Firestore;
 }
 
 export { auth, db };

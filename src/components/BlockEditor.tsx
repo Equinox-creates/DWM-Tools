@@ -1,6 +1,7 @@
 import React from 'react';
 import { DiscordWebhookMessage, DiscordEmbed } from '@/types';
 import { Plus, Trash2, Undo, Redo } from 'lucide-react';
+import { playButtonSound } from '@/utils/sounds';
 
 interface BlockEditorProps {
   message: DiscordWebhookMessage;
@@ -32,6 +33,7 @@ const EmbedBlock = ({ embed, index, message, onChange }: { embed: DiscordEmbed, 
   };
 
   const removeEmbed = () => {
+    playButtonSound();
     const newEmbeds = [...(message.embeds || [])];
     newEmbeds.splice(index, 1);
     onChange({ embeds: newEmbeds });
@@ -59,6 +61,13 @@ const EmbedBlock = ({ embed, index, message, onChange }: { embed: DiscordEmbed, 
           className="w-full bg-zinc-100 dark:bg-black/20 border border-purple-200 dark:border-purple-500/30 rounded p-2 text-sm text-zinc-900 dark:text-purple-100 placeholder-purple-300/30 focus:outline-none focus:border-purple-500"
           rows={2}
           placeholder="Description"
+        />
+        <input
+          type="text"
+          value={embed.image?.url || ''}
+          onChange={(e) => updateEmbed({ image: { url: e.target.value } })}
+          className="w-full bg-zinc-100 dark:bg-black/20 border border-purple-200 dark:border-purple-500/30 rounded p-2 text-sm text-zinc-900 dark:text-purple-100 placeholder-purple-300/30 focus:outline-none focus:border-purple-500"
+          placeholder="Image URL"
         />
         
         {/* Fields Block Area */}
@@ -88,6 +97,7 @@ const EmbedBlock = ({ embed, index, message, onChange }: { embed: DiscordEmbed, 
                />
                <button 
                   onClick={() => {
+                      playButtonSound();
                       const newFields = [...(embed.fields || [])];
                       newFields.splice(fIndex, 1);
                       updateEmbed({ fields: newFields });
@@ -99,7 +109,7 @@ const EmbedBlock = ({ embed, index, message, onChange }: { embed: DiscordEmbed, 
             </div>
           ))}
           <button
-              onClick={() => updateEmbed({ fields: [...(embed.fields || []), { name: 'New Field', value: 'Value', inline: true }] })}
+              onClick={() => { playButtonSound(); updateEmbed({ fields: [...(embed.fields || []), { name: 'New Field', value: 'Value', inline: true }] }); }}
               className="ml-4 text-xs text-green-600 dark:text-green-400 hover:text-green-500 dark:hover:text-green-300 flex items-center gap-1"
           >
               <Plus className="w-3 h-3" /> Add Field Block
@@ -122,12 +132,12 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({ message, onChange, onU
         <span className="text-zinc-500 dark:text-zinc-400 text-sm font-bold uppercase tracking-widest">Block Stack</span>
         <div className="flex items-center gap-2">
            {onUndo && (
-             <button onClick={onUndo} disabled={!canUndo} className="text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors disabled:opacity-30">
+             <button onClick={() => { playButtonSound(); onUndo(); }} disabled={!canUndo} className="text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors disabled:opacity-30">
                <Undo className="w-3 h-3" />
              </button>
            )}
            {onRedo && (
-             <button onClick={onRedo} disabled={!canRedo} className="text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors disabled:opacity-30">
+             <button onClick={() => { playButtonSound(); onRedo(); }} disabled={!canRedo} className="text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors disabled:opacity-30">
                <Redo className="w-3 h-3" />
              </button>
            )}
@@ -153,7 +163,7 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({ message, onChange, onU
                 </div>
 
                 <button
-                    onClick={() => updateMessage({ embeds: [...(message.embeds || []), { title: 'New Embed', description: '', color: 0 }] })}
+                    onClick={() => { playButtonSound(); updateMessage({ embeds: [...(message.embeds || []), { title: 'New Embed', description: '', color: 0 }] }); }}
                     className="mt-4 w-full py-2 border-2 border-dashed border-zinc-300 dark:border-zinc-600 rounded-lg text-zinc-500 hover:border-purple-500 hover:text-purple-500 transition-colors flex items-center justify-center gap-2"
                 >
                     <Plus className="w-4 h-4" /> Add Embed Block

@@ -8,10 +8,12 @@ import { LogPanel, LogEntry } from './components/LogPanel';
 import { TemplatesPanel } from './components/TemplatesPanel';
 import { AccountPanel } from './components/AccountPanel';
 import { DiscordWebhookMessage, DEFAULT_MESSAGE } from './types';
-import { Moon, Sun, Share2, Trash2, FileJson, Copy, Check, Layout, Code, Box, GitGraph, Plus, Settings, MessageSquare, Terminal, FileText, User, MoreHorizontal, Eye, EyeOff, X, Type } from 'lucide-react';
+import { Moon, Sun, Trash2, FileJson, Copy, Check, Layout, Code, Box, GitGraph, Plus, Settings, MessageSquare, Terminal, FileText, User, MoreHorizontal, Eye, EyeOff, X, Type, Webhook, Volume2, VolumeX, Menu } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '@/utils';
-import { Toaster, toast } from 'sonner';
+import { Toaster } from 'sonner';
+import { toast } from '@/utils/toast';
+import { getMuted, setMuted, playButtonSound } from '@/utils/sounds';
 import { v4 as uuidv4 } from 'uuid';
 
 function App() {
@@ -24,6 +26,14 @@ function App() {
   const [showWebhookManager, setShowWebhookManager] = useState(false);
   const [showStackManager, setShowStackManager] = useState(false);
   const [showMobilePreview, setShowMobilePreview] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [showTextOptionsModal, setShowTextOptionsModal] = useState(false);
+  const [stackSelectMode, setStackSelectMode] = useState(false);
+  const [selectedMessages, setSelectedMessages] = useState<number[]>([]);
+  const [spellCheckEnabled, setSpellCheckEnabled] = useState(false);
+  const [translateTo, setTranslateTo] = useState('en');
+  const [isMutedState, setIsMutedState] = useState(getMuted());
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<'editor' | 'code' | 'block' | 'node' | 'logs' | 'templates' | 'account'>('editor');
   const [savedWebhooks, setSavedWebhooks] = useState<{ name: string, url: string }[]>([]);
@@ -65,6 +75,11 @@ function App() {
               ? `https://cdn.discordapp.com/avatars/${data.id}/${data.avatar}.png` 
               : undefined
           });
+          
+          // Set channel name to webhook name as a fallback since we can't get actual channel name
+          if (data.name) {
+            setChannelName(data.name.toLowerCase().replace(/\s+/g, '-'));
+          }
           
           // Clear overrides when a new valid webhook is loaded
           setMessage({ ...message, username: '', avatar_url: '' });
@@ -146,19 +161,34 @@ function App() {
     }
   }, [darkMode]);
 
+  // BeforeUnload Confirmation
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      // Standard way to trigger browser's native confirmation dialog
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, []);
+
 
 
   const handleClear = () => {
-    if (confirm("Are you sure you want to delete ALL messages and reset to default?")) {
-      setMessages([DEFAULT_MESSAGE]);
-      setActiveMessageIndex(0);
-      setWebhookUrl('');
-      setWebhookData(null);
-      setHistory([DEFAULT_MESSAGE]);
-      setHistoryIndex(0);
-      toast.success("All messages cleared and reset.");
-      addLog("Cleared all messages and reset state", 'warn');
-    }
+    playButtonSound();
+    setShowClearConfirm(true);
+  };
+
+  const confirmClear = () => {
+    playButtonSound();
+    const emptyMessage = { content: '', embeds: [] };
+    setMessages([emptyMessage]);
+    setActiveMessageIndex(0);
+    setHistory([emptyMessage]);
+    setHistoryIndex(0);
+    setShowClearConfirm(false);
+    toast.success("All messages cleared.");
+    addLog("Cleared all messages", 'warn');
   };
 
   const copyJson = () => {
@@ -250,7 +280,8 @@ function App() {
     }
   };
 
-  const handleSend = async () => {
+  const handleSend = async (msgToSend?: DiscordWebhookMessage) => {
+    const targetMessage = msgToSend || message;
     if (!webhookUrl) {
       toast.error("Please enter a Webhook URL first.");
       addLog("Attempted to send without Webhook URL", 'error');
@@ -258,7 +289,7 @@ function App() {
     }
 
     // Validation: Must have content, embeds, or files
-    if (!message.content && (!message.embeds || message.embeds.length === 0) && (!message.files || message.files.length === 0)) {
+    if (!targetMessage.content && (!targetMessage.embeds || targetMessage.embeds.length === 0) && (!targetMessage.files || targetMessage.files.length === 0)) {
       toast.error("Message cannot be empty. Add content, an embed, or a file.");
       addLog("Attempted to send empty message", 'warn');
       return;
@@ -271,7 +302,7 @@ function App() {
     const toastId = toast.loading(`${action} message...`);
 
     // Sanitize message payload
-    const payload = { ...message };
+    const payload = { ...targetMessage };
     if (!payload.username) delete payload.username;
     if (!payload.avatar_url) delete payload.avatar_url;
     
@@ -394,8 +425,8 @@ function App() {
       <header className="sticky top-0 z-50 bg-white/80 dark:bg-[#1e1f22]/80 backdrop-blur-md border-b border-zinc-200 dark:border-[#111214]">
         <div className="w-full px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-cyan-500 rounded-lg flex items-center justify-center shadow-lg shadow-cyan-500/20">
-              <Share2 className="w-5 h-5 text-white" />
+            <div className="w-8 h-8 bg-cyan-600 rounded-lg flex items-center justify-center shadow-lg shadow-cyan-600/20">
+              <Webhook className="w-5 h-5 text-white" />
             </div>
             <h1 className="font-bold text-xl tracking-tight hidden sm:block">DisCord WebHook Manager [EQN]</h1>
             <h1 className="font-bold text-xl tracking-tight sm:hidden">DWM [EQN]</h1>
@@ -403,7 +434,20 @@ function App() {
           
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setShowMobilePreview(!showMobilePreview)}
+              onClick={() => {
+                const newMuted = !isMutedState;
+                setIsMutedState(newMuted);
+                setMuted(newMuted);
+                if (!newMuted) playButtonSound();
+              }}
+              className="p-2 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
+              title={isMutedState ? "Unmute Sounds" : "Mute Sounds"}
+            >
+              {isMutedState ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+            </button>
+            <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-700 mx-1" />
+            <button
+              onClick={() => { playButtonSound(); setShowMobilePreview(!showMobilePreview); }}
               className="xl:hidden p-2 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
               title={showMobilePreview ? "Hide Preview" : "Show Preview"}
             >
@@ -411,71 +455,72 @@ function App() {
             </button>
             <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-700 mx-1 xl:hidden" />
             
-            <button
-              onClick={() => setShowWebhookManager(true)}
-              className="px-3 py-1.5 text-xs font-medium bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2"
-            >
-              <Settings className="w-4 h-4" /> <span className="hidden sm:inline">Manage Webhooks</span>
-            </button>
-            <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-700 mx-1" />
-            <button
-              onClick={() => setAutoCorrectEnabled(!autoCorrectEnabled)}
-              className={cn(
-                "p-2 rounded-lg transition-colors",
-                autoCorrectEnabled ? "text-cyan-500 bg-cyan-50 dark:bg-cyan-900/20" : "text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-              )}
-              title={autoCorrectEnabled ? "Disable Auto-Correct" : "Enable Auto-Correct"}
-            >
-              <Type className="w-5 h-5" />
-            </button>
-            <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-700 mx-1" />
-            <button
-              onClick={() => setShowJson(!showJson)}
-              className="p-2 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
-              title="JSON Editor"
-            >
-              <FileJson className="w-5 h-5" />
-            </button>
-            <button
-              onClick={handleClear}
-              className="p-2 text-zinc-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-              title="Clear All"
-            >
-              <Trash2 className="w-5 h-5" />
-            </button>
-            <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-700 mx-1" />
-            <button
-              onClick={() => setDarkMode(!darkMode)}
-              className="p-2 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
-            >
-              {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-            </button>
+            <div className="hidden sm:flex items-center gap-2">
+              <button
+                onClick={() => { playButtonSound(); setShowWebhookManager(true); }}
+                className="px-3 py-1.5 text-xs font-medium bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2"
+              >
+                <Settings className="w-4 h-4" /> <span>Manage Webhooks</span>
+              </button>
+              <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-700 mx-1" />
+              <button
+                onClick={() => { playButtonSound(); setShowTextOptionsModal(true); }}
+                className={cn(
+                  "p-2 rounded-lg transition-colors",
+                  autoCorrectEnabled || spellCheckEnabled ? "text-cyan-500 bg-cyan-50 dark:bg-cyan-900/20" : "text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                )}
+                title="Text Options"
+              >
+                <Type className="w-5 h-5" />
+              </button>
+              <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-700 mx-1" />
+              <button
+                onClick={() => { playButtonSound(); setShowJson(!showJson); }}
+                className="p-2 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
+                title="JSON Editor"
+              >
+                <FileJson className="w-5 h-5" />
+              </button>
+              <button
+                onClick={handleClear}
+                className="p-2 text-zinc-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                title="Clear All"
+              >
+                <Trash2 className="w-5 h-5" />
+              </button>
+            </div>
           </div>
         </div>
       </header>
 
-      <main className="flex-1 overflow-hidden flex">
+      <main className="flex-1 overflow-hidden flex pb-16 sm:pb-0">
         
-        {/* Left Sidebar Menu */}
-        <div className="w-16 sm:w-20 bg-white dark:bg-[#1e1f22] border-r border-zinc-200 dark:border-[#111214] flex flex-col items-center py-4 gap-4 z-40">
+        {/* Left Sidebar Menu (Desktop) */}
+        <div className="hidden sm:flex w-20 bg-white dark:bg-[#1e1f22] border-r border-zinc-200 dark:border-[#111214] flex-col items-center py-4 gap-2 z-40">
            {tabs.map(tab => (
              <button
                key={tab.id}
                onClick={() => setActiveTab(tab.id)}
                className={cn(
-                 "p-3 rounded-xl transition-all duration-200 flex flex-col items-center gap-1 group relative",
+                 "w-full py-3 transition-all duration-200 flex flex-col items-center gap-1 group relative rounded-xl hover:shadow-md",
                  activeTab === tab.id 
-                   ? "bg-cyan-500/10 text-cyan-500" 
+                   ? "text-cyan-500 bg-cyan-50/50 dark:bg-cyan-900/20 shadow-sm" 
                    : "text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
                )}
                title={tab.label}
              >
-               <tab.icon className={cn("w-6 h-6", activeTab === tab.id && "fill-current")} />
-               <span className="text-[10px] font-medium">{tab.label}</span>
+               {activeTab === tab.id && (
+                 <motion.div 
+                   layoutId="activeTabBackground"
+                   className="absolute inset-0 bg-cyan-500/10 rounded-xl"
+                 />
+               )}
+               <tab.icon className="w-6 h-6 relative z-10" />
+               <span className="text-[10px] font-medium relative z-10">{tab.label}</span>
                {activeTab === tab.id && (
                  <motion.div 
                    layoutId="activeTabIndicator"
-                   className="absolute left-0 top-2 bottom-2 w-1 bg-cyan-500 rounded-r-full"
+                   className="absolute right-0 top-1/4 bottom-1/4 w-1 bg-cyan-500 rounded-l-full shadow-[0_0_8px_rgba(6,182,212,0.8)]"
                  />
                )}
              </button>
@@ -564,19 +609,27 @@ function App() {
              <div className="h-full p-4 flex flex-col bg-zinc-50 dark:bg-[#111214]">
                 <div className="flex items-center justify-between mb-4 xl:mb-4">
                     <h3 className="text-sm font-bold text-zinc-500 uppercase tracking-wider">Live Preview</h3>
-                    <button 
-                        onClick={() => setShowMobilePreview(false)} 
-                        className="xl:hidden p-2 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-lg text-zinc-500"
-                    >
-                        <X className="w-5 h-5" />
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => { playButtonSound(); setDarkMode(!darkMode); }}
+                          className="p-1.5 text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-lg transition-colors"
+                        >
+                          {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                        </button>
+                        <button 
+                            onClick={() => { playButtonSound(); setShowMobilePreview(false); }} 
+                            className="xl:hidden p-1.5 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-lg text-zinc-500"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
+                    </div>
                 </div>
-                <div className="bg-[#313338] rounded-xl shadow-2xl overflow-hidden flex-1 border border-[#1e1f22]">
-                  <div className="h-10 bg-[#1e1f22] flex items-center px-4 gap-2 border-b border-[#111214]">
-                    <div className="text-[#949BA4] font-bold text-sm"># {channelName}</div>
+                <div className={`${darkMode ? 'bg-[#313338] border-[#1e1f22]' : 'bg-[#ffffff] border-[#e3e5e8]'} rounded-xl shadow-2xl overflow-hidden flex-1 border`}>
+                  <div className={`h-10 ${darkMode ? 'bg-[#1e1f22] border-[#111214]' : 'bg-[#f2f3f5] border-[#e3e5e8]'} flex items-center px-4 gap-2 border-b`}>
+                    <div className={`${darkMode ? 'text-[#949BA4]' : 'text-[#5c5e66]'} font-bold text-sm`}># {channelName}</div>
                   </div>
                   <div className="p-0 h-[calc(100%-2.5rem)] overflow-y-auto custom-scrollbar">
-                    <MessagePreview message={message} webhookData={webhookData} />
+                    <MessagePreview message={message} webhookData={webhookData} darkMode={darkMode} />
                   </div>
                 </div>
              </div>
@@ -584,6 +637,96 @@ function App() {
 
         </div>
       </main>
+
+      {/* Mobile Bottom Navigation */}
+      <div className="sm:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-[#1e1f22] border-t border-zinc-200 dark:border-[#111214] flex justify-around items-center h-16 z-50">
+        <button
+          onClick={() => setActiveTab('editor')}
+          className={cn("flex flex-col items-center justify-center w-full h-full", activeTab === 'editor' ? "text-cyan-500" : "text-zinc-500")}
+        >
+          <Layout className="w-6 h-6" />
+          <span className="text-[10px] font-medium mt-1">Editor</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('logs')}
+          className={cn("flex flex-col items-center justify-center w-full h-full", activeTab === 'logs' ? "text-cyan-500" : "text-zinc-500")}
+        >
+          <Terminal className="w-6 h-6" />
+          <span className="text-[10px] font-medium mt-1">Logs</span>
+        </button>
+        <button
+          onClick={() => setShowMobileMenu(!showMobileMenu)}
+          className={cn("flex flex-col items-center justify-center w-full h-full", showMobileMenu ? "text-cyan-500" : "text-zinc-500")}
+        >
+          <Menu className="w-6 h-6" />
+          <span className="text-[10px] font-medium mt-1">Menu</span>
+        </button>
+      </div>
+
+      {/* Mobile Menu Drawer */}
+      {showMobileMenu && (
+        <div className="sm:hidden fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={() => setShowMobileMenu(false)}>
+          <motion.div
+            initial={{ y: "100%" }}
+            animate={{ y: 0 }}
+            exit={{ y: "100%" }}
+            transition={{ type: "spring", damping: 25, stiffness: 200 }}
+            className="absolute bottom-16 left-0 right-0 bg-white dark:bg-[#1e1f22] rounded-t-2xl p-4 shadow-xl border-t border-zinc-200 dark:border-[#111214]"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="grid grid-cols-4 gap-4">
+              {tabs.filter(t => t.id !== 'editor' && t.id !== 'logs').map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => { setActiveTab(tab.id); setShowMobileMenu(false); }}
+                  className={cn(
+                    "flex flex-col items-center justify-center p-3 rounded-xl transition-colors",
+                    activeTab === tab.id ? "bg-cyan-50 dark:bg-cyan-900/20 text-cyan-500" : "bg-zinc-50 dark:bg-zinc-900 text-zinc-500"
+                  )}
+                >
+                  <tab.icon className="w-6 h-6 mb-1" />
+                  <span className="text-[10px] font-medium">{tab.label}</span>
+                </button>
+              ))}
+              <button
+                onClick={() => { playButtonSound(); setShowStackManager(true); setShowMobileMenu(false); }}
+                className="flex flex-col items-center justify-center p-3 rounded-xl bg-zinc-50 dark:bg-zinc-900 text-zinc-500 transition-colors"
+              >
+                <MoreHorizontal className="w-6 h-6 mb-1" />
+                <span className="text-[10px] font-medium">Stack</span>
+              </button>
+              <button
+                onClick={() => { playButtonSound(); setShowWebhookManager(true); setShowMobileMenu(false); }}
+                className="flex flex-col items-center justify-center p-3 rounded-xl bg-zinc-50 dark:bg-zinc-900 text-zinc-500 transition-colors"
+              >
+                <Settings className="w-6 h-6 mb-1" />
+                <span className="text-[10px] font-medium">Webhooks</span>
+              </button>
+              <button
+                onClick={() => { playButtonSound(); setShowTextOptionsModal(true); setShowMobileMenu(false); }}
+                className="flex flex-col items-center justify-center p-3 rounded-xl bg-zinc-50 dark:bg-zinc-900 text-zinc-500 transition-colors"
+              >
+                <Type className="w-6 h-6 mb-1" />
+                <span className="text-[10px] font-medium">Text Opts</span>
+              </button>
+              <button
+                onClick={() => { playButtonSound(); setShowJson(true); setShowMobileMenu(false); }}
+                className="flex flex-col items-center justify-center p-3 rounded-xl bg-zinc-50 dark:bg-zinc-900 text-zinc-500 transition-colors"
+              >
+                <FileJson className="w-6 h-6 mb-1" />
+                <span className="text-[10px] font-medium">JSON</span>
+              </button>
+              <button
+                onClick={() => { playButtonSound(); handleClear(); setShowMobileMenu(false); }}
+                className="flex flex-col items-center justify-center p-3 rounded-xl bg-zinc-50 dark:bg-zinc-900 text-red-500 transition-colors"
+              >
+                <Trash2 className="w-6 h-6 mb-1" />
+                <span className="text-[10px] font-medium">Clear All</span>
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
 
       {/* Edit Message Modal */}
       {showEditMessageModal && (
@@ -642,7 +785,7 @@ function App() {
           >
             <div className="flex items-center justify-between p-4 border-b border-zinc-200 dark:border-zinc-800">
               <h3 className="font-bold text-lg">Message Stack</h3>
-              <button onClick={() => setShowStackManager(false)} className="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md">
+              <button onClick={() => { playButtonSound(); setShowStackManager(false); }} className="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md">
                 <span className="sr-only">Close</span>
                 <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12" /></svg>
               </button>
@@ -652,35 +795,73 @@ function App() {
                     <p className="text-sm text-zinc-500">
                         Manage multiple messages or edit sent ones.
                     </p>
-                    <button
-                        onClick={() => {
-                            setShowStackManager(false);
-                            setShowEditMessageModal(true);
-                        }}
-                        className="text-xs flex items-center gap-1 text-cyan-600 hover:text-cyan-700 font-medium px-2 py-1 bg-cyan-50 dark:bg-cyan-900/20 rounded"
-                    >
-                        <MessageSquare className="w-3 h-3" /> Edit Sent Message
-                    </button>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={() => {
+                                playButtonSound();
+                                setStackSelectMode(!stackSelectMode);
+                                setSelectedMessages([]);
+                            }}
+                            className={cn(
+                                "text-xs flex items-center gap-1 font-medium px-2 py-1 rounded transition-colors",
+                                stackSelectMode ? "bg-cyan-500 text-white" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700"
+                            )}
+                        >
+                            Select
+                        </button>
+                        <button
+                            onClick={() => {
+                                playButtonSound();
+                                setShowStackManager(false);
+                                setShowEditMessageModal(true);
+                            }}
+                            className="text-xs flex items-center gap-1 text-cyan-600 hover:text-cyan-700 font-medium px-2 py-1 bg-cyan-50 dark:bg-cyan-900/20 rounded"
+                        >
+                            <MessageSquare className="w-3 h-3" /> Edit Sent Message
+                        </button>
+                    </div>
                 </div>
                 <div className="space-y-2 max-h-[300px] overflow-y-auto custom-scrollbar">
                     {messages.map((msg, idx) => (
                         <div 
                             key={idx}
-                            onClick={() => setActiveMessageIndex(idx)}
+                            onClick={() => {
+                                playButtonSound();
+                                if (stackSelectMode) {
+                                    if (selectedMessages.includes(idx)) {
+                                        setSelectedMessages(selectedMessages.filter(i => i !== idx));
+                                    } else {
+                                        setSelectedMessages([...selectedMessages, idx]);
+                                    }
+                                } else {
+                                    setActiveMessageIndex(idx);
+                                }
+                            }}
                             className={cn(
                                 "flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-all",
-                                activeMessageIndex === idx 
-                                    ? "bg-cyan-50 dark:bg-cyan-900/20 border-cyan-500 ring-1 ring-cyan-500" 
-                                    : "bg-zinc-50 dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700"
+                                stackSelectMode && selectedMessages.includes(idx)
+                                    ? "bg-cyan-50 dark:bg-cyan-900/20 border-cyan-500 ring-1 ring-cyan-500"
+                                    : activeMessageIndex === idx && !stackSelectMode
+                                        ? "bg-cyan-50 dark:bg-cyan-900/20 border-cyan-500 ring-1 ring-cyan-500" 
+                                        : "bg-zinc-50 dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700"
                             )}
                         >
                             <div className="flex items-center gap-3">
-                                <div className={cn(
-                                    "w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold",
-                                    activeMessageIndex === idx ? "bg-cyan-500 text-white" : "bg-zinc-200 dark:bg-zinc-800 text-zinc-500"
-                                )}>
-                                    {idx + 1}
-                                </div>
+                                {stackSelectMode ? (
+                                    <div className={cn(
+                                        "w-5 h-5 rounded border flex items-center justify-center transition-colors",
+                                        selectedMessages.includes(idx) ? "bg-cyan-500 border-cyan-500 text-white" : "border-zinc-300 dark:border-zinc-600"
+                                    )}>
+                                        {selectedMessages.includes(idx) && <Check className="w-3 h-3" />}
+                                    </div>
+                                ) : (
+                                    <div className={cn(
+                                        "w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold",
+                                        activeMessageIndex === idx ? "bg-cyan-500 text-white" : "bg-zinc-200 dark:bg-zinc-800 text-zinc-500"
+                                    )}>
+                                        {idx + 1}
+                                    </div>
+                                )}
                                 <div className="flex flex-col">
                                     <span className="text-sm font-medium truncate max-w-[150px]">
                                         {msg.content || (msg.embeds?.[0]?.title) || "Empty Message"}
@@ -690,9 +871,9 @@ function App() {
                                     </span>
                                 </div>
                             </div>
-                            {messages.length > 1 && (
+                            {messages.length > 1 && !stackSelectMode && (
                                 <button 
-                                    onClick={(e) => { e.stopPropagation(); removeMessage(idx); }}
+                                    onClick={(e) => { e.stopPropagation(); playButtonSound(); removeMessage(idx); }}
                                     className="p-2 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
                                 >
                                     <Trash2 className="w-4 h-4" />
@@ -701,20 +882,126 @@ function App() {
                         </div>
                     ))}
                 </div>
-                <button
-                    onClick={addNewMessage}
-                    className="w-full py-2 border-2 border-dashed border-zinc-300 dark:border-zinc-700 rounded-lg text-zinc-500 hover:text-cyan-500 hover:border-cyan-500 hover:bg-cyan-50 dark:hover:bg-cyan-900/10 transition-all flex items-center justify-center gap-2 font-medium text-sm"
-                >
-                    <Plus className="w-4 h-4" /> Add New Message
-                </button>
+                {!stackSelectMode && (
+                    <button
+                        onClick={() => { playButtonSound(); addNewMessage(); }}
+                        className="w-full py-2 border-2 border-dashed border-zinc-300 dark:border-zinc-700 rounded-lg text-zinc-500 hover:text-cyan-500 hover:border-cyan-500 hover:bg-cyan-50 dark:hover:bg-cyan-900/10 transition-all flex items-center justify-center gap-2 font-medium text-sm"
+                    >
+                        <Plus className="w-4 h-4" /> Add New Message
+                    </button>
+                )}
             </div>
-            <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/50 rounded-b-xl">
+            <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/50 rounded-b-xl flex gap-2">
                 <button 
-                    onClick={() => setShowStackManager(false)}
-                    className="w-full py-2 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-lg font-bold text-sm hover:opacity-90 transition-opacity"
+                    onClick={async () => {
+                        playButtonSound();
+                        setShowStackManager(false);
+                        const msgsToSend = stackSelectMode && selectedMessages.length > 0 
+                            ? selectedMessages.map(i => messages[i]) 
+                            : messages;
+                        
+                        for (let i = 0; i < msgsToSend.length; i++) {
+                            const actualIndex = messages.indexOf(msgsToSend[i]);
+                            setActiveMessageIndex(actualIndex);
+                            await new Promise(r => setTimeout(r, 100)); // small delay to update state
+                            await handleSend(msgsToSend[i]);
+                            await new Promise(r => setTimeout(r, 1000)); // delay between sends
+                        }
+                    }}
+                    className="flex-1 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg font-bold text-sm transition-opacity"
+                >
+                    {stackSelectMode && selectedMessages.length > 0 ? `Send Selected (${selectedMessages.length})` : "Send All"}
+                </button>
+                <button 
+                    onClick={() => { playButtonSound(); setShowStackManager(false); }}
+                    className="flex-1 py-2 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-lg font-bold text-sm hover:opacity-90 transition-opacity"
                 >
                     Done
                 </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Text Options Modal */}
+      {showTextOptionsModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white dark:bg-zinc-900 rounded-xl shadow-2xl w-full max-w-md flex flex-col"
+          >
+            <div className="flex items-center justify-between p-4 border-b border-zinc-200 dark:border-zinc-800">
+              <h3 className="font-bold text-lg flex items-center gap-2"><Type className="w-5 h-5" /> Text Options</h3>
+              <button onClick={() => { playButtonSound(); setShowTextOptionsModal(false); }} className="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md">
+                <span className="sr-only">Close</span>
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 space-y-6">
+              {/* Spell Check */}
+              <div className="flex items-center justify-between">
+                <div>
+                    <h4 className="font-medium text-zinc-900 dark:text-white">Spell Check</h4>
+                    <p className="text-xs text-zinc-500">Highlight spelling errors in the editor.</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" className="sr-only peer" checked={spellCheckEnabled} onChange={() => { playButtonSound(); setSpellCheckEnabled(!spellCheckEnabled); }} />
+                  <div className="w-11 h-6 bg-zinc-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-cyan-500 dark:bg-zinc-700 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-zinc-600 peer-checked:bg-cyan-600"></div>
+                </label>
+              </div>
+
+              {/* Translate To */}
+              <div className="space-y-2">
+                <div>
+                    <h4 className="font-medium text-zinc-900 dark:text-white">Translate To</h4>
+                    <p className="text-xs text-zinc-500">Select a language to translate your message to.</p>
+                </div>
+                <select 
+                    value={translateTo}
+                    onChange={(e) => setTranslateTo(e.target.value)}
+                    className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded-md px-3 py-2 text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                >
+                    <option value="en">English</option>
+                    <option value="es">Spanish</option>
+                    <option value="fr">French</option>
+                    <option value="de">German</option>
+                    <option value="it">Italian</option>
+                    <option value="pt">Portuguese</option>
+                    <option value="ru">Russian</option>
+                    <option value="ja">Japanese</option>
+                    <option value="ko">Korean</option>
+                    <option value="zh">Chinese (Simplified)</option>
+                    <option value="hi">Hindi</option>
+                    <option value="ar">Arabic</option>
+                </select>
+              </div>
+
+              {/* Auto Correct */}
+              <div className="flex items-center justify-between">
+                <div>
+                    <h4 className="font-medium text-zinc-900 dark:text-white">Auto Correct</h4>
+                    <p className="text-xs text-zinc-500">Automatically correct grammar and spelling.</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" className="sr-only peer" checked={autoCorrectEnabled} onChange={() => { playButtonSound(); setAutoCorrectEnabled(!autoCorrectEnabled); }} />
+                  <div className="w-11 h-6 bg-zinc-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-cyan-500 dark:bg-zinc-700 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-zinc-600 peer-checked:bg-cyan-600"></div>
+                </label>
+              </div>
+            </div>
+            <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 flex justify-end gap-2 bg-zinc-50 dark:bg-zinc-950/50 rounded-b-xl">
+               <button 
+                onClick={() => { playButtonSound(); setShowTextOptionsModal(false); }}
+                className="px-4 py-2 text-sm font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
+               >
+                 Close
+               </button>
+               <button 
+                onClick={() => { playButtonSound(); toast.success("Text options applied!"); setShowTextOptionsModal(false); }}
+                className="px-4 py-2 text-sm font-bold text-white bg-cyan-600 hover:bg-cyan-700 rounded-lg transition-colors"
+               >
+                 Apply & Save
+               </button>
             </div>
           </motion.div>
         </div>
@@ -869,6 +1156,39 @@ function App() {
                     Save Current
                   </button>
                 </div>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Clear Confirm Modal */}
+      {showClearConfirm && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="bg-white dark:bg-[#2b2d31] w-full max-w-md rounded-2xl shadow-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden"
+          >
+            <div className="p-6">
+              <h2 className="text-xl font-bold text-zinc-900 dark:text-white mb-2">Clear All Messages?</h2>
+              <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">
+                Are you sure you want to clear all messages? This will delete all content and embeds, leaving you with an empty message. This action cannot be undone.
+              </p>
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => { playButtonSound(); setShowClearConfirm(false); }}
+                  className="px-4 py-2 rounded-lg font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmClear}
+                  className="px-4 py-2 rounded-lg font-bold text-white bg-red-500 hover:bg-red-600 shadow-lg shadow-red-500/20 transition-all"
+                >
+                  Yes, Clear All
+                </button>
               </div>
             </div>
           </motion.div>

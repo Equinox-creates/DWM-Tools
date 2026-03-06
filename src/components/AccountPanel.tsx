@@ -46,9 +46,10 @@ export const AccountPanel: React.FC = () => {
                 toast.success("Simulation: Password reset email sent!");
                 setMode('login');
             }
-        } catch (error: any) {
+        } catch (error) {
             console.error("Reset password error:", error);
-            toast.error("Failed to send reset email: " + error.message);
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            toast.error("Failed to send reset email: " + errorMessage);
         } finally {
             setIsLoading(false);
         }

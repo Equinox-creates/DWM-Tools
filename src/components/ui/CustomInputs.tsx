@@ -1,7 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ChevronDown, Check, Palette } from 'lucide-react';
+import { ChevronDown, Check, Palette, Calendar as CalendarIcon, Clock } from 'lucide-react';
 import { cn } from '@/utils';
 import { motion, AnimatePresence } from 'motion/react';
+import { HexColorPicker } from 'react-colorful';
+import { DayPicker } from 'react-day-picker';
+import { format, parseISO, isValid } from 'date-fns';
+import 'react-day-picker/dist/style.css';
 
 // --- Custom Select ---
 
@@ -14,7 +18,7 @@ interface SelectOption {
 interface CustomSelectProps {
   value: string | number;
   options: SelectOption[];
-  onChange: (value: any) => void;
+  onChange: (value: string | number) => void;
   placeholder?: string;
   className?: string;
 }
@@ -162,17 +166,119 @@ export const CustomColorPicker: React.FC<CustomColorPickerProps> = ({ color, onC
               ))}
             </div>
             
-            <div className="relative w-full h-8 rounded-md overflow-hidden border border-zinc-300 dark:border-zinc-700">
-                <input
-                    type="color"
-                    value={color}
-                    onChange={(e) => onChange(e.target.value)}
-                    className="absolute -top-2 -left-2 w-[120%] h-[200%] cursor-pointer p-0 border-0"
-                />
-                <div className="absolute inset-0 pointer-events-none flex items-center justify-center text-xs font-bold text-white mix-blend-difference">
-                    Custom Picker
-                </div>
+            <div className="mt-2">
+              <HexColorPicker color={color} onChange={onChange} />
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+// --- Custom Date Picker ---
+
+interface CustomDatePickerProps {
+  value: string;
+  onChange: (value: string) => void;
+  className?: string;
+}
+
+export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({ value, onChange, className }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  
+  const parsedDate = value ? parseISO(value) : undefined;
+  const isValidDate = parsedDate && isValid(parsedDate);
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(isValidDate ? parsedDate : undefined);
+  const [timeString, setTimeString] = useState(isValidDate ? format(parsedDate, 'HH:mm') : '12:00');
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleDateSelect = (date: Date | undefined) => {
+    setSelectedDate(date);
+    if (date) {
+      updateValue(date, timeString);
+    }
+  };
+
+  const handleTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newTime = e.target.value;
+    setTimeString(newTime);
+    if (selectedDate) {
+      updateValue(selectedDate, newTime);
+    }
+  };
+
+  const updateValue = (date: Date, time: string) => {
+    const [hours, minutes] = time.split(':').map(Number);
+    const newDate = new Date(date);
+    newDate.setHours(hours || 0, minutes || 0, 0, 0);
+    onChange(newDate.toISOString());
+  };
+
+  return (
+    <div className={cn("relative", className)} ref={containerRef}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center justify-between bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded-md px-3 py-2 text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all"
+      >
+        <span className="flex items-center gap-2 truncate text-zinc-700 dark:text-zinc-300">
+          <CalendarIcon className="w-4 h-4 text-zinc-400" />
+          {isValidDate ? format(parsedDate, 'PPp') : <span className="text-zinc-400">Select Date & Time</span>}
+        </span>
+        <ChevronDown className={cn("w-4 h-4 text-zinc-400 transition-transform", isOpen && "rotate-180")} />
+      </button>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 5 }}
+            className="absolute z-50 left-0 mt-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-xl p-3"
+          >
+            <DayPicker
+              mode="single"
+              selected={selectedDate}
+              onSelect={handleDateSelect}
+              className="border-b border-zinc-200 dark:border-zinc-800 pb-3 mb-3"
+              classNames={{
+                day_selected: "bg-cyan-600 text-white hover:bg-cyan-700",
+                day_today: "font-bold text-cyan-600",
+                button: "hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors",
+              }}
+            />
+            <div className="flex items-center gap-2 px-2">
+              <Clock className="w-4 h-4 text-zinc-500" />
+              <input
+                type="time"
+                value={timeString}
+                onChange={handleTimeChange}
+                className="flex-1 bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded-md px-2 py-1 text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              />
+            </div>
+            {isValidDate && (
+              <button
+                onClick={() => {
+                  onChange('');
+                  setSelectedDate(undefined);
+                  setIsOpen(false);
+                }}
+                className="w-full mt-3 text-xs text-red-500 hover:text-red-600 font-medium py-1"
+              >
+                Clear Timestamp
+              </button>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
