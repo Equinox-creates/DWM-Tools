@@ -1,7 +1,7 @@
 import React from 'react';
 import { DiscordWebhookMessage, DiscordEmbed } from '@/types';
 import { Plus, Trash2, Undo, Redo } from 'lucide-react';
-import { playButtonSound } from '@/utils/sounds';
+import { playButtonSound, playDeleteSound } from '@/utils/sounds';
 
 interface BlockEditorProps {
   message: DiscordWebhookMessage;
@@ -44,7 +44,7 @@ const EmbedBlock = ({ embed, index, message, onChange }: { embed: DiscordEmbed, 
       <div className="absolute left-0 top-0 bottom-0 w-1 bg-purple-500 rounded-l-lg"></div>
       <div className="flex justify-between items-center mb-2 pl-2">
         <span className="text-xs font-bold text-purple-700 dark:text-purple-400 uppercase tracking-wider">Embed #{index + 1}</span>
-        <button onClick={removeEmbed} className="text-purple-400 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
+        <button onClick={() => { playDeleteSound(); removeEmbed(); }} className="text-purple-400 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
       </div>
       
       <div className="space-y-2 pl-2">
@@ -97,7 +97,7 @@ const EmbedBlock = ({ embed, index, message, onChange }: { embed: DiscordEmbed, 
                />
                <button 
                   onClick={() => {
-                      playButtonSound();
+                      playDeleteSound();
                       const newFields = [...(embed.fields || [])];
                       newFields.splice(fIndex, 1);
                       updateEmbed({ fields: newFields });

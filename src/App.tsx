@@ -8,12 +8,12 @@ import { LogPanel, LogEntry } from './components/LogPanel';
 import { TemplatesPanel } from './components/TemplatesPanel';
 import { AccountPanel } from './components/AccountPanel';
 import { DiscordWebhookMessage, DEFAULT_MESSAGE } from './types';
-import { Moon, Sun, Trash2, FileJson, Copy, Check, Layout, Code, Box, GitGraph, Plus, Settings, MessageSquare, Terminal, FileText, User, MoreHorizontal, Eye, EyeOff, X, Type, Webhook, Volume2, VolumeX, Menu } from 'lucide-react';
+import { Moon, Sun, Trash2, FileJson, Copy, Check, Layout, Code, Box, GitGraph, Plus, Settings, Terminal, FileText, User, Eye, EyeOff, X, Type, Webhook, Volume2, VolumeX, Menu, Layers, Send } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '@/utils';
 import { Toaster } from 'sonner';
 import { toast } from '@/utils/toast';
-import { getMuted, setMuted, playButtonSound } from '@/utils/sounds';
+import { getMuted, setMuted, playButtonSound, playSendSound, playDeleteSound } from '@/utils/sounds';
 import { v4 as uuidv4 } from 'uuid';
 
 function App() {
@@ -24,10 +24,14 @@ function App() {
   const [darkMode, setDarkMode] = useState(true);
   const [showJson, setShowJson] = useState(false);
   const [showWebhookManager, setShowWebhookManager] = useState(false);
-  const [showStackManager, setShowStackManager] = useState(false);
+  const [showMessageManager, setShowMessageManager] = useState(false);
+  const [messageManagerTab, setMessageManagerTab] = useState<'stack' | 'edit'>('stack');
   const [showMobilePreview, setShowMobilePreview] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [clearRemoveWebhook, setClearRemoveWebhook] = useState(false);
+  const [clearHardReset, setClearHardReset] = useState(false);
+  const [showMobileWarning, setShowMobileWarning] = useState(false);
   const [showTextOptionsModal, setShowTextOptionsModal] = useState(false);
   const [stackSelectMode, setStackSelectMode] = useState(false);
   const [selectedMessages, setSelectedMessages] = useState<number[]>([]);
@@ -56,6 +60,13 @@ function App() {
   };
 
   const [webhookData, setWebhookData] = useState<{ name?: string, avatar?: string } | null>(null);
+
+  useEffect(() => {
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    if (isMobile) {
+      setShowMobileWarning(true);
+    }
+  }, []);
 
   // Fetch webhook details when URL changes
   useEffect(() => {
@@ -152,43 +163,33 @@ function App() {
     }
   };
 
-  // Toggle dark mode class on html element
-  useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [darkMode]);
-
-  // BeforeUnload Confirmation
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      // Standard way to trigger browser's native confirmation dialog
-      e.preventDefault();
-      e.returnValue = '';
-    };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, []);
-
-
-
   const handleClear = () => {
     playButtonSound();
     setShowClearConfirm(true);
   };
 
   const confirmClear = () => {
-    playButtonSound();
+    playDeleteSound();
     const emptyMessage = { content: '', embeds: [] };
-    setMessages([emptyMessage]);
-    setActiveMessageIndex(0);
-    setHistory([emptyMessage]);
-    setHistoryIndex(0);
+    
+    if (clearHardReset) {
+      setMessages([emptyMessage]);
+      setActiveMessageIndex(0);
+      setHistory([emptyMessage]);
+      setHistoryIndex(0);
+    } else {
+      const newMessages = [...messages];
+      newMessages[activeMessageIndex] = { ...newMessages[activeMessageIndex], content: '', embeds: [], files: [] };
+      setMessages(newMessages);
+    }
+    
+    if (clearRemoveWebhook) {
+      setWebhookUrl('');
+    }
+    
     setShowClearConfirm(false);
-    toast.success("All messages cleared.");
-    addLog("Cleared all messages", 'warn');
+    toast.success("Cleared successfully.");
+    addLog("Cleared messages", 'warn');
   };
 
   const copyJson = () => {
@@ -226,7 +227,6 @@ function App() {
     { id: 'account', label: 'Account', icon: User },
   ] as const;
 
-  const [showEditMessageModal, setShowEditMessageModal] = useState(false);
   const [editMessageUrl, setEditMessageUrl] = useState('');
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
 
@@ -265,7 +265,6 @@ function App() {
 
             setMessage(loadedMessage);
             setEditingMessageId(messageId);
-            setShowEditMessageModal(false);
             setEditMessageUrl('');
             toast.success("Message loaded for editing!", { id: toastId });
             addLog(`Loaded message ${messageId} for editing`, 'success');
@@ -296,6 +295,7 @@ function App() {
     }
 
     setIsSending(true);
+    playSendSound();
     const action = editingMessageId ? "Updating" : "Sending";
     addLog(`${action} message...`, 'info');
     
@@ -419,7 +419,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-zinc-100 dark:bg-[#111214] text-zinc-900 dark:text-zinc-100 transition-colors duration-200 flex flex-col">
-      <Toaster position="top-center" theme={darkMode ? 'dark' : 'light'} />
+      <Toaster position="top-center" theme="dark" />
       
       {/* Header */}
       <header className="sticky top-0 z-50 bg-white/80 dark:bg-[#1e1f22]/80 backdrop-blur-md border-b border-zinc-200 dark:border-[#111214]">
@@ -457,10 +457,17 @@ function App() {
             
             <div className="hidden sm:flex items-center gap-2">
               <button
+                onClick={() => { playSendSound(); handleSend(); }}
+                disabled={isSending || !webhookUrl}
+                className="px-3 py-1.5 text-xs font-medium bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Send className="w-4 h-4" /> <span>Send</span>
+              </button>
+              <button
                 onClick={() => { playButtonSound(); setShowWebhookManager(true); }}
                 className="px-3 py-1.5 text-xs font-medium bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2"
               >
-                <Settings className="w-4 h-4" /> <span>Manage Webhooks</span>
+                <Settings className="w-4 h-4" /> <span>Webhook Settings</span>
               </button>
               <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-700 mx-1" />
               <button
@@ -530,11 +537,11 @@ function App() {
            <div className="flex flex-col gap-2 w-full px-2 items-center mt-auto mb-4">
              <div className="w-full h-px bg-zinc-200 dark:bg-zinc-800 my-1" />
              <button
-               onClick={() => setShowStackManager(true)}
+               onClick={() => { playButtonSound(); setShowMessageManager(true); }}
                className="w-10 h-10 rounded-full bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center text-zinc-500 hover:bg-zinc-300 dark:hover:bg-zinc-700 transition-colors"
-               title="Message Options"
+               title="Message Manager"
              >
-               <MoreHorizontal className="w-5 h-5" />
+               <Layers className="w-5 h-5" />
              </button>
            </div>
         </div>
@@ -558,6 +565,7 @@ function App() {
                   editingMessageId={editingMessageId}
                   onCancelEdit={() => setEditingMessageId(null)}
                   autoCorrectEnabled={autoCorrectEnabled}
+                  spellCheckEnabled={spellCheckEnabled}
                 />
               )}
               {activeTab === 'code' && (
@@ -603,7 +611,7 @@ function App() {
 
           {/* Preview Column (Responsive) */}
           <div className={cn(
-            "fixed inset-0 z-[60] bg-white dark:bg-[#111214] xl:static xl:block xl:w-[400px] border-l border-zinc-200 dark:border-[#111214] transition-transform duration-300 ease-in-out",
+            "fixed inset-0 z-[60] bg-white dark:bg-[#111214] xl:static xl:block xl:w-[400px] border-l border-zinc-200 dark:border-[#111214] transition-transform duration-300 ease-in-out overflow-x-hidden overflow-y-auto",
             showMobilePreview ? "translate-x-0" : "translate-x-full xl:translate-x-0"
           )}>
              <div className="h-full p-4 flex flex-col bg-zinc-50 dark:bg-[#111214]">
@@ -628,7 +636,7 @@ function App() {
                   <div className={`h-10 ${darkMode ? 'bg-[#1e1f22] border-[#111214]' : 'bg-[#f2f3f5] border-[#e3e5e8]'} flex items-center px-4 gap-2 border-b`}>
                     <div className={`${darkMode ? 'text-[#949BA4]' : 'text-[#5c5e66]'} font-bold text-sm`}># {channelName}</div>
                   </div>
-                  <div className="p-0 h-[calc(100%-2.5rem)] overflow-y-auto custom-scrollbar">
+                  <div className="p-0 h-[calc(100%-2.5rem)] overflow-y-auto overflow-x-hidden custom-scrollbar">
                     <MessagePreview message={message} webhookData={webhookData} darkMode={darkMode} />
                   </div>
                 </div>
@@ -689,11 +697,11 @@ function App() {
                 </button>
               ))}
               <button
-                onClick={() => { playButtonSound(); setShowStackManager(true); setShowMobileMenu(false); }}
+                onClick={() => { playButtonSound(); setShowMessageManager(true); setShowMobileMenu(false); }}
                 className="flex flex-col items-center justify-center p-3 rounded-xl bg-zinc-50 dark:bg-zinc-900 text-zinc-500 transition-colors"
               >
-                <MoreHorizontal className="w-6 h-6 mb-1" />
-                <span className="text-[10px] font-medium">Stack</span>
+                <Layers className="w-6 h-6 mb-1" />
+                <span className="text-[10px] font-medium">Manager</span>
               </button>
               <button
                 onClick={() => { playButtonSound(); setShowWebhookManager(true); setShowMobileMenu(false); }}
@@ -728,197 +736,195 @@ function App() {
         </div>
       )}
 
-      {/* Edit Message Modal */}
-      {showEditMessageModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-            <motion.div 
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="bg-white dark:bg-zinc-900 rounded-xl shadow-2xl w-full max-w-md flex flex-col"
-            >
-                <div className="flex items-center justify-between p-4 border-b border-zinc-200 dark:border-zinc-800">
-                    <h3 className="font-bold text-lg">Edit Sent Message</h3>
-                    <button onClick={() => setShowEditMessageModal(false)} className="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md">
-                        <span className="sr-only">Close</span>
-                        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12" /></svg>
-                    </button>
-                </div>
-                <div className="p-4 space-y-4">
-                    <p className="text-sm text-zinc-500">
-                        Paste the URL of the message you want to edit. This will load the message content into the editor.
-                        <br/>
-                        <span className="text-xs text-amber-500">Note: You can only edit messages sent by the current Webhook.</span>
-                    </p>
-                    <input 
-                        value={editMessageUrl}
-                        onChange={(e) => setEditMessageUrl(e.target.value)}
-                        placeholder="https://discord.com/channels/..."
-                        className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded-md px-3 py-2 text-sm dark:text-white"
-                    />
-                    <div className="flex justify-end gap-2">
-                        <button 
-                            onClick={() => setShowEditMessageModal(false)}
-                            className="px-4 py-2 text-sm font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg"
-                        >
-                            Cancel
-                        </button>
-                        <button 
-                            onClick={handleLoadMessage}
-                            disabled={isSending || !editMessageUrl}
-                            className="px-4 py-2 text-sm font-bold text-white bg-cyan-600 hover:bg-cyan-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            {isSending ? 'Loading...' : 'Load Message'}
-                        </button>
-                    </div>
-                </div>
-            </motion.div>
-        </div>
-      )}
-
-      {/* Message Stack Modal */}
-      {showStackManager && (
+      {/* Message Manager Modal */}
+      {showMessageManager && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <motion.div 
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white dark:bg-zinc-900 rounded-xl shadow-2xl w-full max-w-md flex flex-col"
+            className="bg-white dark:bg-zinc-900 rounded-xl shadow-2xl w-full max-w-4xl flex flex-col"
           >
             <div className="flex items-center justify-between p-4 border-b border-zinc-200 dark:border-zinc-800">
-              <h3 className="font-bold text-lg">Message Stack</h3>
-              <button onClick={() => { playButtonSound(); setShowStackManager(false); }} className="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md">
+              <h3 className="font-bold text-lg">Message Manager</h3>
+              <button onClick={() => { playButtonSound(); setShowMessageManager(false); }} className="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md">
                 <span className="sr-only">Close</span>
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12" /></svg>
+                <X className="w-5 h-5" />
               </button>
             </div>
+            
+            {/* Tabs */}
+            <div className="flex items-center gap-4 px-4 pt-4 border-b border-zinc-200 dark:border-zinc-800">
+                <button 
+                    onClick={() => { playButtonSound(); setMessageManagerTab('stack'); }}
+                    className={cn(
+                        "pb-2 text-sm font-medium transition-colors border-b-2",
+                        messageManagerTab === 'stack' ? "border-cyan-500 text-cyan-500" : "border-transparent text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+                    )}
+                >
+                    Message Stack
+                </button>
+                <button 
+                    onClick={() => { playButtonSound(); setMessageManagerTab('edit'); }}
+                    className={cn(
+                        "pb-2 text-sm font-medium transition-colors border-b-2",
+                        messageManagerTab === 'edit' ? "border-cyan-500 text-cyan-500" : "border-transparent text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+                    )}
+                >
+                    Edit Sent Message
+                </button>
+            </div>
+
             <div className="p-4 space-y-4">
-                <div className="flex items-center justify-between">
-                    <p className="text-sm text-zinc-500">
-                        Manage multiple messages or edit sent ones.
-                    </p>
-                    <div className="flex gap-2">
-                        <button
-                            onClick={() => {
-                                playButtonSound();
-                                setStackSelectMode(!stackSelectMode);
-                                setSelectedMessages([]);
-                            }}
-                            className={cn(
-                                "text-xs flex items-center gap-1 font-medium px-2 py-1 rounded transition-colors",
-                                stackSelectMode ? "bg-cyan-500 text-white" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700"
-                            )}
-                        >
-                            Select
-                        </button>
-                        <button
-                            onClick={() => {
-                                playButtonSound();
-                                setShowStackManager(false);
-                                setShowEditMessageModal(true);
-                            }}
-                            className="text-xs flex items-center gap-1 text-cyan-600 hover:text-cyan-700 font-medium px-2 py-1 bg-cyan-50 dark:bg-cyan-900/20 rounded"
-                        >
-                            <MessageSquare className="w-3 h-3" /> Edit Sent Message
-                        </button>
-                    </div>
-                </div>
-                <div className="space-y-2 max-h-[300px] overflow-y-auto custom-scrollbar">
-                    {messages.map((msg, idx) => (
-                        <div 
-                            key={idx}
-                            onClick={() => {
-                                playButtonSound();
-                                if (stackSelectMode) {
-                                    if (selectedMessages.includes(idx)) {
-                                        setSelectedMessages(selectedMessages.filter(i => i !== idx));
-                                    } else {
-                                        setSelectedMessages([...selectedMessages, idx]);
-                                    }
-                                } else {
-                                    setActiveMessageIndex(idx);
-                                }
-                            }}
-                            className={cn(
-                                "flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-all",
-                                stackSelectMode && selectedMessages.includes(idx)
-                                    ? "bg-cyan-50 dark:bg-cyan-900/20 border-cyan-500 ring-1 ring-cyan-500"
-                                    : activeMessageIndex === idx && !stackSelectMode
-                                        ? "bg-cyan-50 dark:bg-cyan-900/20 border-cyan-500 ring-1 ring-cyan-500" 
-                                        : "bg-zinc-50 dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700"
-                            )}
-                        >
-                            <div className="flex items-center gap-3">
-                                {stackSelectMode ? (
-                                    <div className={cn(
-                                        "w-5 h-5 rounded border flex items-center justify-center transition-colors",
-                                        selectedMessages.includes(idx) ? "bg-cyan-500 border-cyan-500 text-white" : "border-zinc-300 dark:border-zinc-600"
-                                    )}>
-                                        {selectedMessages.includes(idx) && <Check className="w-3 h-3" />}
-                                    </div>
-                                ) : (
-                                    <div className={cn(
-                                        "w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold",
-                                        activeMessageIndex === idx ? "bg-cyan-500 text-white" : "bg-zinc-200 dark:bg-zinc-800 text-zinc-500"
-                                    )}>
-                                        {idx + 1}
-                                    </div>
-                                )}
-                                <div className="flex flex-col">
-                                    <span className="text-sm font-medium truncate max-w-[150px]">
-                                        {msg.content || (msg.embeds?.[0]?.title) || "Empty Message"}
-                                    </span>
-                                    <span className="text-[10px] text-zinc-500">
-                                        {msg.embeds?.length || 0} embeds • {msg.files?.length || 0} files
-                                    </span>
-                                </div>
-                            </div>
-                            {messages.length > 1 && !stackSelectMode && (
-                                <button 
-                                    onClick={(e) => { e.stopPropagation(); playButtonSound(); removeMessage(idx); }}
-                                    className="p-2 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
+                {messageManagerTab === 'stack' && (
+                    <>
+                        <div className="flex items-center justify-between">
+                            <p className="text-sm text-zinc-500">
+                                Manage multiple messages in your stack.
+                            </p>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => {
+                                        playButtonSound();
+                                        setStackSelectMode(!stackSelectMode);
+                                        setSelectedMessages([]);
+                                    }}
+                                    className={cn(
+                                        "text-xs flex items-center gap-1 font-medium px-2 py-1 rounded transition-colors",
+                                        stackSelectMode ? "bg-cyan-500 text-white" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700"
+                                    )}
                                 >
-                                    <Trash2 className="w-4 h-4" />
+                                    Select
                                 </button>
-                            )}
+                            </div>
                         </div>
-                    ))}
-                </div>
-                {!stackSelectMode && (
-                    <button
-                        onClick={() => { playButtonSound(); addNewMessage(); }}
-                        className="w-full py-2 border-2 border-dashed border-zinc-300 dark:border-zinc-700 rounded-lg text-zinc-500 hover:text-cyan-500 hover:border-cyan-500 hover:bg-cyan-50 dark:hover:bg-cyan-900/10 transition-all flex items-center justify-center gap-2 font-medium text-sm"
-                    >
-                        <Plus className="w-4 h-4" /> Add New Message
-                    </button>
+                        <div className="space-y-2 max-h-[300px] overflow-y-auto custom-scrollbar">
+                            {messages.map((msg, idx) => (
+                                <div 
+                                    key={idx}
+                                    onClick={() => {
+                                        playButtonSound();
+                                        if (stackSelectMode) {
+                                            if (selectedMessages.includes(idx)) {
+                                                setSelectedMessages(selectedMessages.filter(i => i !== idx));
+                                            } else {
+                                                setSelectedMessages([...selectedMessages, idx]);
+                                            }
+                                        } else {
+                                            setActiveMessageIndex(idx);
+                                        }
+                                    }}
+                                    className={cn(
+                                        "flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-all",
+                                        stackSelectMode && selectedMessages.includes(idx)
+                                            ? "bg-cyan-50 dark:bg-cyan-900/20 border-cyan-500 ring-1 ring-cyan-500"
+                                            : activeMessageIndex === idx && !stackSelectMode
+                                                ? "bg-cyan-50 dark:bg-cyan-900/20 border-cyan-500 ring-1 ring-cyan-500" 
+                                                : "bg-zinc-50 dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700"
+                                    )}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        {stackSelectMode ? (
+                                            <div className={cn(
+                                                "w-5 h-5 rounded border flex items-center justify-center transition-colors",
+                                                selectedMessages.includes(idx) ? "bg-cyan-500 border-cyan-500 text-white" : "border-zinc-300 dark:border-zinc-600"
+                                            )}>
+                                                {selectedMessages.includes(idx) && <Check className="w-3 h-3" />}
+                                            </div>
+                                        ) : (
+                                            <div className={cn(
+                                                "w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold",
+                                                activeMessageIndex === idx ? "bg-cyan-500 text-white" : "bg-zinc-200 dark:bg-zinc-800 text-zinc-500"
+                                            )}>
+                                                {idx + 1}
+                                            </div>
+                                        )}
+                                        <div className="flex flex-col">
+                                            <span className="text-sm font-medium truncate max-w-[150px]">
+                                                {msg.content || (msg.embeds?.[0]?.title) || "Empty Message"}
+                                            </span>
+                                            <span className="text-[10px] text-zinc-500">
+                                                {msg.embeds?.length || 0} embeds • {msg.files?.length || 0} files
+                                            </span>
+                                        </div>
+                                    </div>
+                                    {messages.length > 1 && !stackSelectMode && (
+                                        <button 
+                                            onClick={(e) => { e.stopPropagation(); playDeleteSound(); removeMessage(idx); }}
+                                            className="p-2 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                        {!stackSelectMode && (
+                            <button
+                                onClick={() => { playButtonSound(); addNewMessage(); }}
+                                className="w-full py-2 border-2 border-dashed border-zinc-300 dark:border-zinc-700 rounded-lg text-zinc-500 hover:text-cyan-500 hover:border-cyan-500 hover:bg-cyan-50 dark:hover:bg-cyan-900/10 transition-all flex items-center justify-center gap-2 font-medium text-sm"
+                            >
+                                <Plus className="w-4 h-4" /> Add New Message
+                            </button>
+                        )}
+                    </>
+                )}
+
+                {messageManagerTab === 'edit' && (
+                    <div className="space-y-4">
+                        <p className="text-sm text-zinc-500">
+                            Paste the URL of the message you want to edit. This will load the message content into the editor.
+                            <br/>
+                            <span className="text-xs text-amber-500">Note: You can only edit messages sent by the current Webhook.</span>
+                        </p>
+                        <input 
+                            value={editMessageUrl}
+                            onChange={(e) => setEditMessageUrl(e.target.value)}
+                            placeholder="https://discord.com/channels/..."
+                            className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded-md px-3 py-2 text-sm dark:text-white"
+                        />
+                        <div className="flex justify-end gap-2">
+                            <button 
+                                onClick={handleLoadMessage}
+                                disabled={isSending || !editMessageUrl}
+                                className="px-4 py-2 text-sm font-bold text-white bg-cyan-600 hover:bg-cyan-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {isSending ? 'Loading...' : 'Load Message'}
+                            </button>
+                        </div>
+                    </div>
                 )}
             </div>
-            <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/50 rounded-b-xl flex gap-2">
-                <button 
-                    onClick={async () => {
-                        playButtonSound();
-                        setShowStackManager(false);
-                        const msgsToSend = stackSelectMode && selectedMessages.length > 0 
-                            ? selectedMessages.map(i => messages[i]) 
-                            : messages;
-                        
-                        for (let i = 0; i < msgsToSend.length; i++) {
-                            const actualIndex = messages.indexOf(msgsToSend[i]);
-                            setActiveMessageIndex(actualIndex);
-                            await new Promise(r => setTimeout(r, 100)); // small delay to update state
-                            await handleSend(msgsToSend[i]);
-                            await new Promise(r => setTimeout(r, 1000)); // delay between sends
-                        }
-                    }}
-                    className="flex-1 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg font-bold text-sm transition-opacity"
-                >
-                    {stackSelectMode && selectedMessages.length > 0 ? `Send Selected (${selectedMessages.length})` : "Send All"}
-                </button>
-                <button 
-                    onClick={() => { playButtonSound(); setShowStackManager(false); }}
-                    className="flex-1 py-2 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-lg font-bold text-sm hover:opacity-90 transition-opacity"
-                >
-                    Done
-                </button>
-            </div>
+            
+            {messageManagerTab === 'stack' && (
+                <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/50 rounded-b-xl flex gap-2">
+                    <button 
+                        onClick={async () => {
+                            playSendSound();
+                            setShowMessageManager(false);
+                            const msgsToSend = stackSelectMode && selectedMessages.length > 0 
+                                ? selectedMessages.map(i => messages[i]) 
+                                : messages;
+                            
+                            for (let i = 0; i < msgsToSend.length; i++) {
+                                const actualIndex = messages.indexOf(msgsToSend[i]);
+                                setActiveMessageIndex(actualIndex);
+                                await new Promise(r => setTimeout(r, 100)); // small delay to update state
+                                await handleSend(msgsToSend[i]);
+                                await new Promise(r => setTimeout(r, 1000)); // delay between sends
+                            }
+                        }}
+                        className="flex-1 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg font-bold text-sm transition-opacity"
+                    >
+                        {stackSelectMode && selectedMessages.length > 0 ? `Send Selected (${selectedMessages.length})` : "Send All"}
+                    </button>
+                    <button 
+                        onClick={() => { playButtonSound(); setShowMessageManager(false); }}
+                        className="flex-1 py-2 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-lg font-bold text-sm hover:opacity-90 transition-opacity"
+                    >
+                        Done
+                    </button>
+                </div>
+            )}
           </motion.div>
         </div>
       )}
@@ -1128,7 +1134,7 @@ function App() {
                           Load
                         </button>
                         <button 
-                          onClick={() => setSavedWebhooks(savedWebhooks.filter((_, i) => i !== idx))}
+                          onClick={() => { playDeleteSound(); setSavedWebhooks(savedWebhooks.filter((_, i) => i !== idx)); }}
                           className="text-zinc-400 hover:text-red-500"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -1172,10 +1178,29 @@ function App() {
             className="bg-white dark:bg-[#2b2d31] w-full max-w-md rounded-2xl shadow-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden"
           >
             <div className="p-6">
-              <h2 className="text-xl font-bold text-zinc-900 dark:text-white mb-2">Clear All Messages?</h2>
+              <h2 className="text-xl font-bold text-zinc-900 dark:text-white mb-2">Clear Message?</h2>
               <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">
-                Are you sure you want to clear all messages? This will delete all content and embeds, leaving you with an empty message. This action cannot be undone.
+                Are you sure you want to clear the current message? This will delete text fields and embeds.
               </p>
+
+              <div className="space-y-3 mb-6">
+                <label className="flex items-center justify-between p-3 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 cursor-pointer">
+                  <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Remove the WebHook URL</span>
+                  <div className={cn("w-10 h-5 rounded-full transition-colors relative", clearRemoveWebhook ? "bg-cyan-500" : "bg-zinc-300 dark:bg-zinc-700")}>
+                    <div className={cn("absolute top-1 left-1 w-3 h-3 rounded-full bg-white transition-transform", clearRemoveWebhook ? "translate-x-5" : "")} />
+                  </div>
+                  <input type="checkbox" className="hidden" checked={clearRemoveWebhook} onChange={() => { playButtonSound(); setClearRemoveWebhook(!clearRemoveWebhook); }} />
+                </label>
+                
+                <label className="flex items-center justify-between p-3 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 cursor-pointer">
+                  <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Hard reset (Delete all message stacks)</span>
+                  <div className={cn("w-10 h-5 rounded-full transition-colors relative", clearHardReset ? "bg-red-500" : "bg-zinc-300 dark:bg-zinc-700")}>
+                    <div className={cn("absolute top-1 left-1 w-3 h-3 rounded-full bg-white transition-transform", clearHardReset ? "translate-x-5" : "")} />
+                  </div>
+                  <input type="checkbox" className="hidden" checked={clearHardReset} onChange={() => { playButtonSound(); setClearHardReset(!clearHardReset); }} />
+                </label>
+              </div>
+
               <div className="flex justify-end gap-3">
                 <button
                   onClick={() => { playButtonSound(); setShowClearConfirm(false); }}
@@ -1187,9 +1212,52 @@ function App() {
                   onClick={confirmClear}
                   className="px-4 py-2 rounded-lg font-bold text-white bg-red-500 hover:bg-red-600 shadow-lg shadow-red-500/20 transition-all"
                 >
-                  Yes, Clear All
+                  Clear
                 </button>
               </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Mobile Warning Modal */}
+      {showMobileWarning && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl w-full max-w-sm flex flex-col overflow-hidden"
+          >
+            <div className="p-6 text-center space-y-4">
+              <div className="w-16 h-16 rounded-full bg-amber-100 dark:bg-amber-900/20 flex items-center justify-center mx-auto mb-2">
+                <Layout className="w-8 h-8 text-amber-600 dark:text-amber-400" />
+              </div>
+              <h3 className="font-bold text-xl">Mobile Experience</h3>
+              <p className="text-sm text-zinc-500">
+                This Tool is Not Quite Comfortable with mobile. Do you really want to use it in mobile?
+              </p>
+            </div>
+            <div className="p-4 bg-zinc-50 dark:bg-zinc-950/50 border-t border-zinc-200 dark:border-zinc-800 flex flex-col gap-2">
+              <button 
+                onClick={() => { playButtonSound(); setShowMobileWarning(false); }}
+                className="w-full py-3 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl font-bold transition-colors"
+              >
+                Yes
+              </button>
+              <button 
+                onClick={() => { 
+                  playButtonSound(); 
+                  const viewport = document.querySelector("meta[name=viewport]");
+                  if (viewport) {
+                    viewport.setAttribute("content", "width=1024");
+                  }
+                  setShowMobileWarning(false);
+                  toast.info("Attempted to force desktop mode. You may need to use your browser's 'Request Desktop Site' feature.");
+                }}
+                className="w-full py-3 bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-xl font-bold transition-colors"
+              >
+                Go to desktop mode
+              </button>
             </div>
           </motion.div>
         </div>

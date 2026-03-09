@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { DiscordWebhookMessage } from '@/types';
-import { Download, Trash2, Globe, Share2, Search, Plus, Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
+import { Download, Trash2, Globe, Share2, Search, Plus, Loader2, Send } from 'lucide-react';
+import { toast } from '../utils/toast';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../lib/firebase';
 import { collection, addDoc, query, where, getDocs, deleteDoc, doc, orderBy } from 'firebase/firestore';
+import { playDeleteSound, playSendSound } from '@/utils/sounds';
 
 interface Template {
   id: string;
@@ -22,6 +23,7 @@ interface Template {
 interface TemplatesPanelProps {
   onApply: (message: DiscordWebhookMessage) => void;
   currentMessage: DiscordWebhookMessage;
+  onSend?: (message: DiscordWebhookMessage) => void;
 }
 
 const MOCK_ONLINE_TEMPLATES: Template[] = [
@@ -64,8 +66,10 @@ const MOCK_ONLINE_TEMPLATES: Template[] = [
   }
 ];
 
-export const TemplatesPanel: React.FC<TemplatesPanelProps> = ({ onApply, currentMessage }) => {
+export const TemplatesPanel: React.FC<TemplatesPanelProps> = ({ onApply, currentMessage, onSend }) => {
   const { user } = useAuth();
+  const isLoggedIn = !!user || !!localStorage.getItem('username');
+  const username = user?.displayName || localStorage.getItem('username') || 'Anonymous';
   const [activeTab, setActiveTab] = useState<'online' | 'saved'>('online');
   const [savedTemplates, setSavedTemplates] = useState<Template[]>([]);
   const [publicTemplates, setPublicTemplates] = useState<Template[]>(MOCK_ONLINE_TEMPLATES);
@@ -130,23 +134,18 @@ export const TemplatesPanel: React.FC<TemplatesPanelProps> = ({ onApply, current
 
   // Fetch templates from Firestore when user logs in or tab changes
   useEffect(() => {
-    if (activeTab === 'saved' && user) {
+    if (activeTab === 'saved' && isLoggedIn) {
         fetchUserTemplates();
-    } else if (activeTab === 'saved' && !user) {
+    } else if (activeTab === 'saved' && !isLoggedIn) {
         setSavedTemplates([]); // Clear if logged out
     } else if (activeTab === 'online') {
         fetchPublicTemplates();
     }
-  }, [user, activeTab, fetchUserTemplates, fetchPublicTemplates]);
+  }, [isLoggedIn, activeTab, fetchUserTemplates, fetchPublicTemplates]);
 
   const handleSaveOrShare = async (isPublic: boolean) => {
-    if (!user) {
+    if (!isLoggedIn) {
         toast.error("Please sign in to save templates.");
-        // We can't easily switch tabs from here without context, but the toast is clear.
-        // Ideally, we'd have a global modal state or callback to open Account settings.
-        // For this implementation, we'll rely on the user navigating to Account.
-        // Or we could dispatch a custom event if we wanted to be fancy.
-        document.dispatchEvent(new CustomEvent('OPEN_ACCOUNT_SETTINGS'));
         return;
     }
 
@@ -156,14 +155,16 @@ export const TemplatesPanel: React.FC<TemplatesPanelProps> = ({ onApply, current
     setIsLoading(true);
     try {
         if (!db) {
-            toast.error("Database connection not available.");
+            // Mock saving if no DB
+            toast.success(isPublic ? "Template shared successfully (Mock)!" : "Template saved to cloud (Mock)!");
+            setIsLoading(false);
             return;
         }
         const newTemplate = {
             name,
             description: isPublic ? 'Shared Community Template' : 'My private template',
-            author: user.displayName || 'Anonymous',
-            authorId: user.uid,
+            author: username,
+            authorId: user?.uid || 'local-user',
             message: currentMessage,
             isPublic,
             downloads: 0,
@@ -249,7 +250,7 @@ export const TemplatesPanel: React.FC<TemplatesPanelProps> = ({ onApply, current
             </div>
         ) : activeTab === 'online' ? (
           filteredOnline.map(template => (
-            <TemplateCard key={template.id} template={template} onApply={onApply} />
+            <TemplateCard key={template.id} template={template} onApply={onApply} onSend={isLoggedIn ? onSend : undefined} />
           ))
         ) : (
           user ? (
@@ -259,6 +260,7 @@ export const TemplatesPanel: React.FC<TemplatesPanelProps> = ({ onApply, current
                     key={template.id} 
                     template={template} 
                     onApply={onApply} 
+                    onSend={isLoggedIn ? onSend : undefined}
                     onDelete={() => deleteTemplate(template.id)}
                     // onShare={() => handleSaveOrShare(true)} // Re-share?
                 />
@@ -312,7 +314,7 @@ export const TemplatesPanel: React.FC<TemplatesPanelProps> = ({ onApply, current
   );
 };
 
-const TemplateCard: React.FC<{ template: Template, onApply: (msg: DiscordWebhookMessage) => void, onDelete?: () => void, onShare?: () => void }> = ({ template, onApply, onDelete, onShare }) => (
+const TemplateCard: React.FC<{ template: Template, onApply: (msg: DiscordWebhookMessage) => void, onDelete?: () => void, onShare?: () => void, onSend?: (msg: DiscordWebhookMessage) => void }> = ({ template, onApply, onDelete, onShare, onSend }) => (
   <div className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-4 hover:border-cyan-500 transition-colors group">
     <div className="flex justify-between items-start mb-2">
       <div>
@@ -326,7 +328,7 @@ const TemplateCard: React.FC<{ template: Template, onApply: (msg: DiscordWebhook
             </button>
         )}
         {onDelete && (
-          <button onClick={(e) => { e.stopPropagation(); onDelete(); }} className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors">
+          <button onClick={(e) => { e.stopPropagation(); playDeleteSound(); onDelete(); }} className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors">
             <Trash2 className="w-4 h-4" />
           </button>
         )}
@@ -338,15 +340,28 @@ const TemplateCard: React.FC<{ template: Template, onApply: (msg: DiscordWebhook
         <span className="flex items-center gap-1"><Download className="w-3 h-3" /> {template.downloads}</span>
         {template.isPublic && <span className="flex items-center gap-1"><Globe className="w-3 h-3" /> Public</span>}
       </div>
-      <button 
-        onClick={() => {
-          onApply(template.message);
-          toast.success(`Applied template: ${template.name}`);
-        }}
-        className="px-3 py-1.5 bg-zinc-200 dark:bg-zinc-800 hover:bg-cyan-600 hover:text-white dark:hover:bg-cyan-600 text-zinc-700 dark:text-zinc-300 text-xs font-bold rounded transition-colors"
-      >
-        Apply
-      </button>
+      <div className="flex gap-2">
+        {onSend && (
+          <button 
+            onClick={() => {
+              playSendSound();
+              onSend(template.message);
+            }}
+            className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-bold rounded transition-colors flex items-center gap-1"
+          >
+            <Send className="w-3 h-3" /> Send
+          </button>
+        )}
+        <button 
+          onClick={() => {
+            onApply(template.message);
+            toast.success(`Applied template: ${template.name}`);
+          }}
+          className="px-3 py-1.5 bg-zinc-200 dark:bg-zinc-800 hover:bg-cyan-600 hover:text-white dark:hover:bg-cyan-600 text-zinc-700 dark:text-zinc-300 text-xs font-bold rounded transition-colors"
+        >
+          Apply
+        </button>
+      </div>
     </div>
   </div>
 );

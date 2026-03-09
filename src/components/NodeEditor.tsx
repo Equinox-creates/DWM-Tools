@@ -4,7 +4,7 @@ import 'reactflow/dist/style.css';
 import { DiscordWebhookMessage, DiscordEmbed, DiscordEmbedField } from '@/types';
 import { intToHex, hexToInt } from '@/utils';
 import { Trash2, Scissors, Undo, Redo, Plus } from 'lucide-react';
-import { playButtonSound } from '@/utils/sounds';
+import { playButtonSound, playDeleteSound } from '@/utils/sounds';
 
 // --- Custom Nodes ---
 
@@ -32,7 +32,7 @@ const StringNode = ({ data, id }: NodeProps) => {
     <div className="px-4 py-2 shadow-md rounded-md bg-white dark:bg-zinc-800 border border-zinc-600 min-w-[200px] relative group">
       <div className="flex justify-between items-center mb-2">
         <div className="font-bold text-xs text-zinc-400">{data.label}</div>
-        <button onClick={() => { playButtonSound(); deleteNode(); }} className="text-zinc-500 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button onClick={() => { playDeleteSound(); deleteNode(); }} className="text-zinc-500 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
             <Trash2 className="w-3 h-3" />
         </button>
       </div>
@@ -55,7 +55,7 @@ const EmbedNode = ({ data, id }: NodeProps) => {
     <div className="px-4 py-2 shadow-md rounded-md bg-white dark:bg-zinc-800 border-2 border-purple-500 min-w-[180px] relative group">
       <div className="flex justify-between items-center mb-2 border-b border-zinc-700 pb-1">
         <div className="font-bold text-sm text-center flex-1">Embed</div>
-        <button onClick={() => { playButtonSound(); deleteNode(); }} className="text-zinc-500 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity absolute right-0 top-0">
+        <button onClick={() => { playDeleteSound(); deleteNode(); }} className="text-zinc-500 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity absolute right-0 top-0">
             <Trash2 className="w-3 h-3" />
         </button>
       </div>
@@ -99,7 +99,7 @@ const FieldNode = ({ data, id }: NodeProps) => {
     <div className="px-4 py-2 shadow-md rounded-md bg-white dark:bg-zinc-800 border-2 border-green-500 min-w-[200px] relative group">
       <div className="flex justify-between items-center mb-2 border-b border-zinc-700 pb-1">
         <div className="font-bold text-sm text-center flex-1">Field</div>
-        <button onClick={() => { playButtonSound(); deleteNode(); }} className="text-zinc-500 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity absolute right-0 top-0">
+        <button onClick={() => { playDeleteSound(); deleteNode(); }} className="text-zinc-500 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity absolute right-0 top-0">
             <Trash2 className="w-3 h-3" />
         </button>
       </div>

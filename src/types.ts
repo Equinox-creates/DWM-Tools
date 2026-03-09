@@ -76,7 +76,7 @@ export const DEFAULT_MESSAGE: DiscordWebhookMessage = {
   embeds: [
     {
       title: "Welcome to the server!",
-      description: "This is a sample embed created with the new DiscoHook Clone.",
+      description: "Tis is a sample embed message. Wich is made with Equinox+Discord Webhook Manager , Compleatly Free Tool, All in one place",
       color: 5814783, // #58b9ff
       fields: [
         {

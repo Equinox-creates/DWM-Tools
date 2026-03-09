@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { DiscordWebhookMessage } from '@/types';
 import Editor from '@monaco-editor/react';
 import { AlertCircle, Check, Copy, Undo, Redo } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '../utils/toast';
 import { playButtonSound } from '@/utils/sounds';
 
 interface CodeEditorProps {
@@ -33,9 +33,9 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({ message, onChange, onUnd
 
   useEffect(() => {
     if (!isTyping.current) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCode(messageToPython(message));
     }
-    // eslint-disable-next-line react-hooks/set-state-in-effect
   }, [message]);
 
   const handleCodeChange = (newCode: string | undefined) => {

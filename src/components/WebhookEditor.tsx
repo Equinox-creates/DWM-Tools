@@ -4,7 +4,7 @@ import { intToHex, hexToInt, cn } from '@/utils';
 import { Plus, Trash2, ChevronDown, ChevronUp, Image as ImageIcon, Link as LinkIcon, Type, Paperclip, MousePointerClick, Smile, Bot } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { v4 as uuidv4 } from 'uuid';
-import { playButtonSound } from '@/utils/sounds';
+import { playButtonSound, playDeleteSound, playSendSound } from '@/utils/sounds';
 import { CustomSelect, CustomColorPicker, CustomDatePicker } from './ui/CustomInputs';
 
 interface EditorProps {
@@ -19,9 +19,10 @@ interface EditorProps {
   editingMessageId?: string | null;
   onCancelEdit?: () => void;
   autoCorrectEnabled?: boolean;
+  spellCheckEnabled?: boolean;
 }
 
-export const WebhookEditor: React.FC<EditorProps> = ({ message, onChange, webhookUrl, setWebhookUrl, onSend, isSending, addLog, webhookData, editingMessageId, onCancelEdit, autoCorrectEnabled }) => {
+export const WebhookEditor: React.FC<EditorProps> = ({ message, onChange, webhookUrl, setWebhookUrl, onSend, isSending, addLog, webhookData, editingMessageId, onCancelEdit, autoCorrectEnabled, spellCheckEnabled }) => {
   const [isLoadingWebhook, setIsLoadingWebhook] = useState(false);
   const [pingEveryone, setPingEveryone] = useState(false);
   const [showInvalidUrlModal, setShowInvalidUrlModal] = useState(false);
@@ -309,7 +310,7 @@ export const WebhookEditor: React.FC<EditorProps> = ({ message, onChange, webhoo
           placeholder="Type your message here..."
           rows={4}
           className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-cyan-500 dark:text-white resize-y min-h-[100px]"
-          spellCheck={autoCorrectEnabled}
+          spellCheck={spellCheckEnabled}
           autoCorrect={autoCorrectEnabled ? "on" : "off"}
         />
       </div>
@@ -323,7 +324,7 @@ export const WebhookEditor: React.FC<EditorProps> = ({ message, onChange, webhoo
             {message.files?.map((file, index) => (
                 <div key={file.id} className="flex items-center justify-between bg-zinc-50 dark:bg-zinc-950 p-2 rounded border border-zinc-200 dark:border-zinc-800">
                     <span className="text-sm truncate max-w-[200px]">{file.name}</span>
-                    <button onClick={() => removeFile(index)} className="text-red-500 hover:bg-red-100 dark:hover:bg-red-900/20 p-1 rounded">
+                    <button onClick={() => { playDeleteSound(); removeFile(index); }} className="text-red-500 hover:bg-red-100 dark:hover:bg-red-900/20 p-1 rounded">
                         <Trash2 className="w-4 h-4" />
                     </button>
                 </div>
@@ -362,6 +363,7 @@ export const WebhookEditor: React.FC<EditorProps> = ({ message, onChange, webhoo
                 onChange={(updates) => updateEmbed(index, updates)}
                 onRemove={() => removeEmbed(index)}
                 autoCorrectEnabled={autoCorrectEnabled}
+                spellCheckEnabled={spellCheckEnabled}
               />
             ))}
           </AnimatePresence>
@@ -397,7 +399,7 @@ export const WebhookEditor: React.FC<EditorProps> = ({ message, onChange, webhoo
                         <span className="text-xs font-bold uppercase text-zinc-500">Action Row {rowIndex + 1}</span>
                         <div className="flex gap-2">
                              <button onClick={() => addButtonToRow(rowIndex)} className="text-cyan-500 hover:text-cyan-600 text-xs font-bold" disabled={row.components.length >= 5}>+ Add Button</button>
-                             <button onClick={() => removeComponentRow(rowIndex)} className="text-red-500 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
+                             <button onClick={() => { playDeleteSound(); removeComponentRow(rowIndex); }} className="text-red-500 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
                         </div>
                     </div>
                     <div className="grid grid-cols-1 gap-2">
@@ -428,7 +430,7 @@ export const WebhookEditor: React.FC<EditorProps> = ({ message, onChange, webhoo
                                         ]}
                                     />
                                 </div>
-                                <button onClick={() => removeButton(rowIndex, btnIndex)} className="text-zinc-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+                                <button onClick={() => { playDeleteSound(); removeButton(rowIndex, btnIndex); }} className="text-zinc-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
                             </div>
                         ))}
                     </div>
@@ -511,7 +513,7 @@ export const WebhookEditor: React.FC<EditorProps> = ({ message, onChange, webhoo
             </button>
         )}
         <button
-          onClick={() => { playButtonSound(); onSend(); }}
+          onClick={() => { playSendSound(); onSend(); }}
           disabled={isSending || !webhookUrl}
           className={cn(
             "flex-1 py-3 rounded-xl font-bold text-white shadow-lg transition-all",
@@ -536,10 +538,10 @@ export const WebhookEditor: React.FC<EditorProps> = ({ message, onChange, webhoo
             >
               <div className="p-6">
                 <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-2">
-                  URL Don'nt Recognized
+                  Recognized
                 </h3>
                 <p className="text-zinc-600 dark:text-zinc-400 mb-6">
-                  The WebHook URL Is Not Matching With Discord's WebHook Data Base. Are You Sure You Want To Load It? If You Proceed, The App Will Try To Load The WebHook Data From The URL You Provided, But It May Fail If The URL Is Invalid Or Not A WebHook URL.
+                  URL
                 </p>
                 <div className="flex justify-end gap-3">
                   <button
@@ -570,7 +572,8 @@ const EmbedEditorItem: React.FC<{
   onChange: (updates: Partial<DiscordEmbed>) => void;
   onRemove: () => void;
   autoCorrectEnabled?: boolean;
-}> = ({ index, embed, onChange, onRemove, autoCorrectEnabled }) => {
+  spellCheckEnabled?: boolean;
+}> = ({ index, embed, onChange, onRemove, autoCorrectEnabled, spellCheckEnabled }) => {
   const [isExpanded, setIsExpanded] = useState(true);
 
   return (
@@ -591,7 +594,7 @@ const EmbedEditorItem: React.FC<{
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={(e) => { e.stopPropagation(); playButtonSound(); onRemove(); }}
+            onClick={(e) => { e.stopPropagation(); playDeleteSound(); onRemove(); }}
             className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
           >
             <Trash2 className="w-4 h-4" />
@@ -642,7 +645,7 @@ const EmbedEditorItem: React.FC<{
               value={embed.title || ''}
               onChange={(e) => onChange({ title: e.target.value })}
               className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded-md px-3 py-2 text-sm dark:text-white font-medium"
-              spellCheck={autoCorrectEnabled}
+              spellCheck={spellCheckEnabled}
               autoCorrect={autoCorrectEnabled ? "on" : "off"}
             />
           </div>
@@ -654,7 +657,7 @@ const EmbedEditorItem: React.FC<{
               onChange={(e) => onChange({ description: e.target.value })}
               rows={3}
               className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded-md px-3 py-2 text-sm dark:text-white resize-y"
-              spellCheck={autoCorrectEnabled}
+              spellCheck={spellCheckEnabled}
               autoCorrect={autoCorrectEnabled ? "on" : "off"}
             />
           </div>
@@ -756,6 +759,8 @@ const EmbedEditorItem: React.FC<{
                       }}
                       placeholder="Name"
                       className="sm:col-span-4 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded px-2 py-1 text-xs dark:text-white"
+                      spellCheck={spellCheckEnabled}
+                      autoCorrect={autoCorrectEnabled ? "on" : "off"}
                     />
                     <input
                       type="text"
@@ -767,6 +772,8 @@ const EmbedEditorItem: React.FC<{
                       }}
                       placeholder="Value"
                       className="sm:col-span-6 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded px-2 py-1 text-xs dark:text-white"
+                      spellCheck={spellCheckEnabled}
+                      autoCorrect={autoCorrectEnabled ? "on" : "off"}
                     />
                     <div className="sm:col-span-2 flex items-center gap-2">
                       <label className="flex items-center gap-1 text-[10px] text-zinc-500 cursor-pointer select-none">
@@ -786,6 +793,7 @@ const EmbedEditorItem: React.FC<{
                   </div>
                   <button
                     onClick={() => {
+                        playDeleteSound();
                         const newFields = [...(embed.fields || [])];
                         newFields.splice(fIndex, 1);
                         onChange({ fields: newFields });
