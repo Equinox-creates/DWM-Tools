@@ -71,13 +71,13 @@ export interface DiscordEmbedField {
 }
 
 export const DEFAULT_MESSAGE: DiscordWebhookMessage = {
-  content: "Hello, world!",
-  username: "Spidey Bot",
+  content: "Hello ! I'm Captain Hook.",
+  username: "Captain Hook",
   embeds: [
     {
       title: "Welcome to the server!",
-      description: "This is a sample embed created with the new DiscoHook Clone.",
-      color: 5814783, // #58b9ff
+      description: "This is A Sample Embed, Which is made with Discord Webhook manager .",
+      color: 5814783, // #00f7ff
       fields: [
         {
           name: "Getting Started",
