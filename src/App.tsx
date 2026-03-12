@@ -29,6 +29,8 @@ function App() {
   const [showMobilePreview, setShowMobilePreview] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [showDeleteWebhookConfirm, setShowDeleteWebhookConfirm] = useState(false);
+  const [showDeleteMessageConfirm, setShowDeleteMessageConfirm] = useState(false);
   const [clearRemoveWebhook, setClearRemoveWebhook] = useState(false);
   const [clearHardReset, setClearHardReset] = useState(false);
   const [showMobileWarning, setShowMobileWarning] = useState(false);
@@ -230,6 +232,84 @@ function App() {
   const [editMessageUrl, setEditMessageUrl] = useState('');
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
 
+  const handleDeleteMessage = async () => {
+    if (!webhookUrl) {
+        toast.error("Please ensure a Webhook URL is set first.");
+        return;
+    }
+
+    const match = editMessageUrl.match(/channels\/\d+\/\d+\/(\d+)/);
+    if (!match) {
+        toast.error("Invalid Discord Message URL format.");
+        return;
+    }
+    const messageId = match[1];
+
+    setShowDeleteMessageConfirm(false);
+    const toastId = toast.loading("Deleting message...");
+    setIsSending(true);
+
+    try {
+        const fetchUrl = `${webhookUrl}/messages/${messageId}`;
+        const response = await fetch(fetchUrl, {
+            method: 'DELETE'
+        });
+
+        if (response.ok || response.status === 204) {
+            toast.success("Message deleted!", { id: toastId });
+            addLog(`Deleted message ${messageId}`, 'success');
+            setEditMessageUrl('');
+            if (editingMessageId === messageId) {
+                setEditingMessageId(null);
+                setMessage(DEFAULT_MESSAGE);
+            }
+        } else {
+            const text = await response.text();
+            toast.error(`Failed to delete: ${response.status}`, { description: text, id: toastId });
+            addLog(`Failed to delete message: ${text}`, 'error');
+        }
+    } catch (error) {
+        toast.error(`Error deleting message: ${error}`, { id: toastId });
+        addLog(`Error deleting message: ${error}`, 'error');
+    } finally {
+        setIsSending(false);
+    }
+  };
+
+  const handleDeleteWebhook = async () => {
+    if (!webhookUrl) {
+        toast.error("Please ensure a Webhook URL is set first.");
+        return;
+    }
+
+    setShowDeleteWebhookConfirm(false);
+    const toastId = toast.loading("Deleting webhook...");
+    setIsSending(true);
+
+    try {
+        const response = await fetch(webhookUrl, {
+            method: 'DELETE'
+        });
+
+        if (response.ok || response.status === 204) {
+            toast.success("Webhook deleted successfully!", { id: toastId });
+            addLog(`Deleted webhook from Discord`, 'success');
+            setWebhookUrl('');
+            setWebhookData(null);
+            setShowWebhookManager(false);
+        } else {
+            const text = await response.text();
+            toast.error(`Failed to delete webhook: ${response.status}`, { description: text, id: toastId });
+            addLog(`Failed to delete webhook: ${text}`, 'error');
+        }
+    } catch (error) {
+        toast.error(`Error deleting webhook: ${error}`, { id: toastId });
+        addLog(`Error deleting webhook: ${error}`, 'error');
+    } finally {
+        setIsSending(false);
+    }
+  };
+
   const handleLoadMessage = async () => {
     if (!webhookUrl) {
         toast.error("Please ensure a Webhook URL is set first.");
@@ -418,21 +498,21 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-100 dark:bg-[#111214] text-zinc-900 dark:text-zinc-100 transition-colors duration-200 flex flex-col">
+    <div className="min-h-screen bg-[#0a0a0a] text-zinc-100 flex flex-col font-sans selection:bg-cyan-500/30">
       <Toaster position="top-center" theme="dark" />
       
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-white/80 dark:bg-[#1e1f22]/80 backdrop-blur-md border-b border-zinc-200 dark:border-[#111214]">
-        <div className="w-full px-4 h-16 flex items-center justify-between">
+      <header className="sticky top-0 z-50 bg-[#121212] border-b border-[#222]">
+        <div className="w-full px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-cyan-600 rounded-lg flex items-center justify-center shadow-lg shadow-cyan-600/20">
-              <Webhook className="w-5 h-5 text-white" />
+            <div className="w-7 h-7 bg-cyan-500 rounded flex items-center justify-center shadow-[0_0_15px_rgba(6,182,212,0.3)]">
+              <Webhook className="w-4 h-4 text-black" />
             </div>
-            <h1 className="font-bold text-xl tracking-tight hidden sm:block">DisCord WebHook Manager [EQN]</h1>
-            <h1 className="font-bold text-xl tracking-tight sm:hidden">DWM [EQN]</h1>
+            <h1 className="font-bold text-sm tracking-wide uppercase text-zinc-200 hidden sm:block">DisCord WebHook Manager <span className="text-zinc-500 font-normal">[EQN]</span></h1>
+            <h1 className="font-bold text-sm tracking-wide uppercase text-zinc-200 sm:hidden">DWM <span className="text-zinc-500 font-normal">[EQN]</span></h1>
           </div>
           
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <button
               onClick={() => {
                 const newMuted = !isMutedState;
@@ -440,60 +520,60 @@ function App() {
                 setMuted(newMuted);
                 if (!newMuted) playButtonSound();
               }}
-              className="p-2 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
+              className="p-1.5 text-zinc-400 hover:text-white hover:bg-[#222] rounded transition-colors"
               title={isMutedState ? "Unmute Sounds" : "Mute Sounds"}
             >
-              {isMutedState ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+              {isMutedState ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
             </button>
-            <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-700 mx-1" />
+            <div className="w-px h-4 bg-[#333] mx-1" />
             <button
               onClick={() => { playButtonSound(); setShowMobilePreview(!showMobilePreview); }}
-              className="xl:hidden p-2 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
+              className="xl:hidden p-1.5 text-zinc-400 hover:text-white hover:bg-[#222] rounded transition-colors"
               title={showMobilePreview ? "Hide Preview" : "Show Preview"}
             >
-              {showMobilePreview ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              {showMobilePreview ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
-            <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-700 mx-1 xl:hidden" />
+            <div className="w-px h-4 bg-[#333] mx-1 xl:hidden" />
             
-            <div className="hidden sm:flex items-center gap-2">
+            <div className="hidden sm:flex items-center gap-1.5">
               <button
                 onClick={() => { playSendSound(); handleSend(); }}
                 disabled={isSending || !webhookUrl}
-                className="px-3 py-1.5 text-xs font-medium bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-1.5 text-xs font-bold bg-cyan-500 hover:bg-cyan-400 text-black rounded transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_10px_rgba(6,182,212,0.2)]"
               >
-                <Send className="w-4 h-4" /> <span>Send</span>
+                <Send className="w-3.5 h-3.5" /> <span>SEND</span>
               </button>
               <button
                 onClick={() => { playButtonSound(); setShowWebhookManager(true); }}
-                className="px-3 py-1.5 text-xs font-medium bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2"
+                className="px-3 py-1.5 text-xs font-medium bg-[#222] hover:bg-[#333] text-zinc-300 rounded transition-colors flex items-center gap-2 border border-[#333]"
               >
-                <Settings className="w-4 h-4" /> <span>Webhook Settings</span>
+                <Settings className="w-3.5 h-3.5" /> <span>Settings</span>
               </button>
-              <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-700 mx-1" />
+              <div className="w-px h-4 bg-[#333] mx-1" />
               <button
                 onClick={() => { playButtonSound(); setShowTextOptionsModal(true); }}
                 className={cn(
-                  "p-2 rounded-lg transition-colors",
-                  autoCorrectEnabled || spellCheckEnabled ? "text-cyan-500 bg-cyan-50 dark:bg-cyan-900/20" : "text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                  "p-1.5 rounded transition-colors",
+                  autoCorrectEnabled || spellCheckEnabled ? "text-cyan-400 bg-cyan-400/10" : "text-zinc-400 hover:text-white hover:bg-[#222]"
                 )}
                 title="Text Options"
               >
-                <Type className="w-5 h-5" />
+                <Type className="w-4 h-4" />
               </button>
-              <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-700 mx-1" />
+              <div className="w-px h-4 bg-[#333] mx-1" />
               <button
                 onClick={() => { playButtonSound(); setShowJson(!showJson); }}
-                className="p-2 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
+                className="p-1.5 text-zinc-400 hover:text-white hover:bg-[#222] rounded transition-colors"
                 title="JSON Editor"
               >
-                <FileJson className="w-5 h-5" />
+                <FileJson className="w-4 h-4" />
               </button>
               <button
                 onClick={handleClear}
-                className="p-2 text-zinc-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                className="p-1.5 text-zinc-400 hover:text-red-400 hover:bg-red-400/10 rounded transition-colors"
                 title="Clear All"
               >
-                <Trash2 className="w-5 h-5" />
+                <Trash2 className="w-4 h-4" />
               </button>
             </div>
           </div>
@@ -503,39 +583,37 @@ function App() {
       <main className="flex-1 overflow-hidden flex pb-16 sm:pb-0">
         
         {/* Left Sidebar Menu (Desktop) */}
-        <div className="hidden sm:flex w-20 bg-white dark:bg-[#1e1f22] border-r border-zinc-200 dark:border-[#111214] flex-col items-center py-4 gap-2 z-40">
+        <div className="hidden sm:flex w-16 bg-[#121212] border-r border-[#222] flex-col items-center py-4 gap-2 z-40">
            {tabs.map(tab => (
              <button
                key={tab.id}
                onClick={() => setActiveTab(tab.id)}
                className={cn(
-                 "w-full py-3 transition-all duration-200 flex flex-col items-center gap-1 group relative rounded-xl hover:shadow-md",
+                 "w-10 h-10 transition-all duration-200 flex items-center justify-center group relative rounded-lg",
                  activeTab === tab.id 
-                   ? "text-cyan-500 bg-cyan-50/50 dark:bg-cyan-900/20 shadow-sm" 
-                   : "text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                   ? "text-cyan-400 bg-cyan-400/10" 
+                   : "text-zinc-500 hover:text-zinc-300 hover:bg-[#222]"
                )}
                title={tab.label}
              >
                {activeTab === tab.id && (
                  <motion.div 
-                   layoutId="activeTabBackground"
-                   className="absolute inset-0 bg-cyan-500/10 rounded-xl"
-                 />
-               )}
-               <tab.icon className="w-6 h-6 relative z-10" />
-               <span className="text-[10px] font-medium relative z-10">{tab.label}</span>
-               {activeTab === tab.id && (
-                 <motion.div 
                    layoutId="activeTabIndicator"
-                   className="absolute right-0 top-1/4 bottom-1/4 w-1 bg-cyan-500 rounded-l-full shadow-[0_0_8px_rgba(6,182,212,0.8)]"
+                   className="absolute left-0 w-1 h-6 bg-cyan-400 rounded-r-full shadow-[0_0_8px_rgba(6,182,212,0.8)]"
+                   initial={false}
+                   transition={{ type: "spring", stiffness: 300, damping: 30 }}
                  />
                )}
+               <tab.icon className="w-5 h-5 relative z-10" />
+               <span className="text-[10px] font-medium opacity-0 group-hover:opacity-100 transition-opacity absolute left-12 bg-[#222] text-white px-2 py-1 rounded shadow-lg whitespace-nowrap z-50 pointer-events-none border border-[#333]">
+                 {tab.label}
+               </span>
              </button>
            ))}
            
            {/* Message Stack Manager Button */}
            <div className="flex flex-col gap-2 w-full px-2 items-center mt-auto mb-4">
-             <div className="w-full h-px bg-zinc-200 dark:bg-zinc-800 my-1" />
+             <div className="w-full h-px bg-[#333] my-1" />
              <button
                onClick={() => { playButtonSound(); setShowMessageManager(true); }}
                className="w-10 h-10 rounded-full bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center text-zinc-500 hover:bg-zinc-300 dark:hover:bg-zinc-700 transition-colors"
@@ -550,7 +628,7 @@ function App() {
         <div className="flex-1 flex overflow-hidden">
           
           {/* Editor Area */}
-          <div className="flex-1 h-full overflow-hidden relative">
+          <div className="flex-1 h-full overflow-hidden relative bg-[#0a0a0a]">
             <div className="absolute inset-0 p-4 lg:p-6 overflow-y-auto custom-scrollbar">
               {activeTab === 'editor' && (
                 <WebhookEditor
@@ -611,28 +689,28 @@ function App() {
 
           {/* Preview Column (Responsive) */}
           <div className={cn(
-            "fixed inset-0 z-[60] bg-white dark:bg-[#111214] xl:static xl:block xl:w-[400px] border-l border-zinc-200 dark:border-[#111214] transition-transform duration-300 ease-in-out overflow-x-hidden overflow-y-auto",
+            "fixed inset-0 z-[60] bg-[#121212] xl:static xl:block xl:w-[450px] border-l border-[#222] transition-transform duration-300 ease-in-out overflow-x-hidden overflow-y-auto shadow-[-10px_0_30px_rgba(0,0,0,0.5)]",
             showMobilePreview ? "translate-x-0" : "translate-x-full xl:translate-x-0"
           )}>
-             <div className="h-full p-4 flex flex-col bg-zinc-50 dark:bg-[#111214]">
+             <div className="h-full p-4 flex flex-col bg-[#121212]">
                 <div className="flex items-center justify-between mb-4 xl:mb-4">
-                    <h3 className="text-sm font-bold text-zinc-500 uppercase tracking-wider">Live Preview</h3>
+                    <h3 className="text-[11px] font-bold text-zinc-500 uppercase tracking-widest">Live Preview</h3>
                     <div className="flex items-center gap-2">
                         <button
                           onClick={() => { playButtonSound(); setDarkMode(!darkMode); }}
-                          className="p-1.5 text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-lg transition-colors"
+                          className="p-1.5 text-zinc-400 hover:text-white hover:bg-[#222] rounded transition-colors"
                         >
                           {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
                         </button>
                         <button 
                             onClick={() => { playButtonSound(); setShowMobilePreview(false); }} 
-                            className="xl:hidden p-1.5 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-lg text-zinc-500"
+                            className="xl:hidden p-1.5 hover:bg-[#222] rounded text-zinc-400 hover:text-white transition-colors"
                         >
-                            <X className="w-5 h-5" />
+                            <X className="w-4 h-4" />
                         </button>
                     </div>
                 </div>
-                <div className={`${darkMode ? 'bg-[#313338] border-[#1e1f22]' : 'bg-[#ffffff] border-[#e3e5e8]'} rounded-xl shadow-2xl overflow-hidden flex-1 border`}>
+                <div className={`${darkMode ? 'bg-[#313338] border-[#1e1f22]' : 'bg-[#ffffff] border-[#e3e5e8]'} rounded-xl shadow-[0_0_20px_rgba(0,0,0,0.3)] overflow-hidden flex-1 border`}>
                   <div className={`h-10 ${darkMode ? 'bg-[#1e1f22] border-[#111214]' : 'bg-[#f2f3f5] border-[#e3e5e8]'} flex items-center px-4 gap-2 border-b`}>
                     <div className={`${darkMode ? 'text-[#949BA4]' : 'text-[#5c5e66]'} font-bold text-sm`}># {channelName}</div>
                   </div>
@@ -647,26 +725,26 @@ function App() {
       </main>
 
       {/* Mobile Bottom Navigation */}
-      <div className="sm:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-[#1e1f22] border-t border-zinc-200 dark:border-[#111214] flex justify-around items-center h-16 z-50">
+      <div className="sm:hidden fixed bottom-0 left-0 right-0 bg-[#121212] border-t border-[#222] flex justify-around items-center h-14 z-50">
         <button
           onClick={() => setActiveTab('editor')}
-          className={cn("flex flex-col items-center justify-center w-full h-full", activeTab === 'editor' ? "text-cyan-500" : "text-zinc-500")}
+          className={cn("flex flex-col items-center justify-center w-full h-full transition-colors", activeTab === 'editor' ? "text-cyan-400" : "text-zinc-500 hover:text-zinc-300")}
         >
-          <Layout className="w-6 h-6" />
+          <Layout className="w-5 h-5" />
           <span className="text-[10px] font-medium mt-1">Editor</span>
         </button>
         <button
           onClick={() => setActiveTab('logs')}
-          className={cn("flex flex-col items-center justify-center w-full h-full", activeTab === 'logs' ? "text-cyan-500" : "text-zinc-500")}
+          className={cn("flex flex-col items-center justify-center w-full h-full transition-colors", activeTab === 'logs' ? "text-cyan-400" : "text-zinc-500 hover:text-zinc-300")}
         >
-          <Terminal className="w-6 h-6" />
+          <Terminal className="w-5 h-5" />
           <span className="text-[10px] font-medium mt-1">Logs</span>
         </button>
         <button
           onClick={() => setShowMobileMenu(!showMobileMenu)}
-          className={cn("flex flex-col items-center justify-center w-full h-full", showMobileMenu ? "text-cyan-500" : "text-zinc-500")}
+          className={cn("flex flex-col items-center justify-center w-full h-full transition-colors", showMobileMenu ? "text-cyan-400" : "text-zinc-500 hover:text-zinc-300")}
         >
-          <Menu className="w-6 h-6" />
+          <Menu className="w-5 h-5" />
           <span className="text-[10px] font-medium mt-1">Menu</span>
         </button>
       </div>
@@ -738,27 +816,27 @@ function App() {
 
       {/* Message Manager Modal */}
       {showMessageManager && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <motion.div 
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white dark:bg-zinc-900 rounded-xl shadow-2xl w-full max-w-4xl flex flex-col"
+            className="bg-[#121212] rounded-xl shadow-2xl w-full max-w-4xl flex flex-col border border-[#333]"
           >
-            <div className="flex items-center justify-between p-4 border-b border-zinc-200 dark:border-zinc-800">
-              <h3 className="font-bold text-lg">Message Manager</h3>
-              <button onClick={() => { playButtonSound(); setShowMessageManager(false); }} className="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md">
+            <div className="flex items-center justify-between p-4 border-b border-[#333]">
+              <h3 className="font-bold text-lg text-white">Message Manager</h3>
+              <button onClick={() => { playButtonSound(); setShowMessageManager(false); }} className="p-1.5 hover:bg-[#222] text-zinc-400 hover:text-white rounded-md transition-colors">
                 <span className="sr-only">Close</span>
                 <X className="w-5 h-5" />
               </button>
             </div>
             
             {/* Tabs */}
-            <div className="flex items-center gap-4 px-4 pt-4 border-b border-zinc-200 dark:border-zinc-800">
+            <div className="flex items-center gap-4 px-4 pt-4 border-b border-[#333]">
                 <button 
                     onClick={() => { playButtonSound(); setMessageManagerTab('stack'); }}
                     className={cn(
                         "pb-2 text-sm font-medium transition-colors border-b-2",
-                        messageManagerTab === 'stack' ? "border-cyan-500 text-cyan-500" : "border-transparent text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+                        messageManagerTab === 'stack' ? "border-cyan-500 text-cyan-400" : "border-transparent text-zinc-500 hover:text-zinc-300"
                     )}
                 >
                     Message Stack
@@ -767,7 +845,7 @@ function App() {
                     onClick={() => { playButtonSound(); setMessageManagerTab('edit'); }}
                     className={cn(
                         "pb-2 text-sm font-medium transition-colors border-b-2",
-                        messageManagerTab === 'edit' ? "border-cyan-500 text-cyan-500" : "border-transparent text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+                        messageManagerTab === 'edit' ? "border-cyan-500 text-cyan-400" : "border-transparent text-zinc-500 hover:text-zinc-300"
                     )}
                 >
                     Edit Sent Message
@@ -778,7 +856,7 @@ function App() {
                 {messageManagerTab === 'stack' && (
                     <>
                         <div className="flex items-center justify-between">
-                            <p className="text-sm text-zinc-500">
+                            <p className="text-sm text-zinc-400">
                                 Manage multiple messages in your stack.
                             </p>
                             <div className="flex gap-2">
@@ -790,7 +868,7 @@ function App() {
                                     }}
                                     className={cn(
                                         "text-xs flex items-center gap-1 font-medium px-2 py-1 rounded transition-colors",
-                                        stackSelectMode ? "bg-cyan-500 text-white" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700"
+                                        stackSelectMode ? "bg-cyan-500 text-white" : "bg-[#222] text-zinc-400 hover:bg-[#333] hover:text-white"
                                     )}
                                 >
                                     Select
@@ -816,30 +894,30 @@ function App() {
                                     className={cn(
                                         "flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-all",
                                         stackSelectMode && selectedMessages.includes(idx)
-                                            ? "bg-cyan-50 dark:bg-cyan-900/20 border-cyan-500 ring-1 ring-cyan-500"
+                                            ? "bg-cyan-500/10 border-cyan-500/50 ring-1 ring-cyan-500/50"
                                             : activeMessageIndex === idx && !stackSelectMode
-                                                ? "bg-cyan-50 dark:bg-cyan-900/20 border-cyan-500 ring-1 ring-cyan-500" 
-                                                : "bg-zinc-50 dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700"
+                                                ? "bg-cyan-500/10 border-cyan-500/50 ring-1 ring-cyan-500/50" 
+                                                : "bg-[#0a0a0a] border-[#333] hover:border-[#444]"
                                     )}
                                 >
                                     <div className="flex items-center gap-3">
                                         {stackSelectMode ? (
                                             <div className={cn(
                                                 "w-5 h-5 rounded border flex items-center justify-center transition-colors",
-                                                selectedMessages.includes(idx) ? "bg-cyan-500 border-cyan-500 text-white" : "border-zinc-300 dark:border-zinc-600"
+                                                selectedMessages.includes(idx) ? "bg-cyan-500 border-cyan-500 text-white" : "border-[#444] bg-[#121212]"
                                             )}>
                                                 {selectedMessages.includes(idx) && <Check className="w-3 h-3" />}
                                             </div>
                                         ) : (
                                             <div className={cn(
                                                 "w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold",
-                                                activeMessageIndex === idx ? "bg-cyan-500 text-white" : "bg-zinc-200 dark:bg-zinc-800 text-zinc-500"
+                                                activeMessageIndex === idx ? "bg-cyan-500 text-white" : "bg-[#222] text-zinc-500"
                                             )}>
                                                 {idx + 1}
                                             </div>
                                         )}
                                         <div className="flex flex-col">
-                                            <span className="text-sm font-medium truncate max-w-[150px]">
+                                            <span className="text-sm font-medium text-white truncate max-w-[150px]">
                                                 {msg.content || (msg.embeds?.[0]?.title) || "Empty Message"}
                                             </span>
                                             <span className="text-[10px] text-zinc-500">
@@ -850,7 +928,7 @@ function App() {
                                     {messages.length > 1 && !stackSelectMode && (
                                         <button 
                                             onClick={(e) => { e.stopPropagation(); playDeleteSound(); removeMessage(idx); }}
-                                            className="p-2 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
+                                            className="p-2 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 rounded-md transition-colors"
                                         >
                                             <Trash2 className="w-4 h-4" />
                                         </button>
@@ -861,7 +939,7 @@ function App() {
                         {!stackSelectMode && (
                             <button
                                 onClick={() => { playButtonSound(); addNewMessage(); }}
-                                className="w-full py-2 border-2 border-dashed border-zinc-300 dark:border-zinc-700 rounded-lg text-zinc-500 hover:text-cyan-500 hover:border-cyan-500 hover:bg-cyan-50 dark:hover:bg-cyan-900/10 transition-all flex items-center justify-center gap-2 font-medium text-sm"
+                                className="w-full py-2 border-2 border-dashed border-[#333] rounded-lg text-zinc-500 hover:text-cyan-400 hover:border-cyan-500/50 hover:bg-cyan-500/5 transition-all flex items-center justify-center gap-2 font-medium text-sm"
                             >
                                 <Plus className="w-4 h-4" /> Add New Message
                             </button>
@@ -871,24 +949,31 @@ function App() {
 
                 {messageManagerTab === 'edit' && (
                     <div className="space-y-4">
-                        <p className="text-sm text-zinc-500">
+                        <p className="text-sm text-zinc-400">
                             Paste the URL of the message you want to edit. This will load the message content into the editor.
                             <br/>
-                            <span className="text-xs text-amber-500">Note: You can only edit messages sent by the current Webhook.</span>
+                            <span className="text-xs text-amber-500/80">Note: You can only edit messages sent by the current Webhook.</span>
                         </p>
                         <input 
                             value={editMessageUrl}
                             onChange={(e) => setEditMessageUrl(e.target.value)}
                             placeholder="https://discord.com/channels/..."
-                            className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded-md px-3 py-2 text-sm dark:text-white"
+                            className="w-full bg-[#0a0a0a] border border-[#333] rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-500 transition-colors"
                         />
                         <div className="flex justify-end gap-2">
                             <button 
                                 onClick={handleLoadMessage}
                                 disabled={isSending || !editMessageUrl}
-                                className="px-4 py-2 text-sm font-bold text-white bg-cyan-600 hover:bg-cyan-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="px-4 py-2 text-sm font-bold text-cyan-400 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/20 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                             >
                                 {isSending ? 'Loading...' : 'Load Message'}
+                            </button>
+                            <button 
+                                onClick={() => { playButtonSound(); setShowDeleteMessageConfirm(true); }}
+                                disabled={isSending || !editMessageUrl}
+                                className="px-4 py-2 text-sm font-bold text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
+                            >
+                                <Trash2 className="w-4 h-4" /> Delete Message
                             </button>
                         </div>
                     </div>
@@ -896,7 +981,7 @@ function App() {
             </div>
             
             {messageManagerTab === 'stack' && (
-                <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/50 rounded-b-xl flex gap-2">
+                <div className="p-4 border-t border-[#333] bg-[#0a0a0a] rounded-b-xl flex gap-2">
                     <button 
                         onClick={async () => {
                             playSendSound();
@@ -913,13 +998,13 @@ function App() {
                                 await new Promise(r => setTimeout(r, 1000)); // delay between sends
                             }
                         }}
-                        className="flex-1 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg font-bold text-sm transition-opacity"
+                        className="flex-1 py-2 bg-cyan-500 hover:bg-cyan-400 text-white rounded-lg font-bold text-sm shadow-[0_0_15px_rgba(6,182,212,0.3)] transition-all"
                     >
                         {stackSelectMode && selectedMessages.length > 0 ? `Send Selected (${selectedMessages.length})` : "Send All"}
                     </button>
                     <button 
                         onClick={() => { playButtonSound(); setShowMessageManager(false); }}
-                        className="flex-1 py-2 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-lg font-bold text-sm hover:opacity-90 transition-opacity"
+                        className="flex-1 py-2 bg-[#222] hover:bg-[#333] text-white rounded-lg font-bold text-sm transition-colors border border-[#333]"
                     >
                         Done
                     </button>
@@ -931,15 +1016,15 @@ function App() {
 
       {/* Text Options Modal */}
       {showTextOptionsModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <motion.div 
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white dark:bg-zinc-900 rounded-xl shadow-2xl w-full max-w-md flex flex-col"
+            className="bg-[#121212] rounded-xl shadow-2xl w-full max-w-md flex flex-col border border-[#333]"
           >
-            <div className="flex items-center justify-between p-4 border-b border-zinc-200 dark:border-zinc-800">
-              <h3 className="font-bold text-lg flex items-center gap-2"><Type className="w-5 h-5" /> Text Options</h3>
-              <button onClick={() => { playButtonSound(); setShowTextOptionsModal(false); }} className="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md">
+            <div className="flex items-center justify-between p-4 border-b border-[#333]">
+              <h3 className="font-bold text-lg flex items-center gap-2 text-white"><Type className="w-5 h-5" /> Text Options</h3>
+              <button onClick={() => { playButtonSound(); setShowTextOptionsModal(false); }} className="p-1.5 hover:bg-[#222] text-zinc-400 hover:text-white rounded-md transition-colors">
                 <span className="sr-only">Close</span>
                 <X className="w-5 h-5" />
               </button>
@@ -948,25 +1033,25 @@ function App() {
               {/* Spell Check */}
               <div className="flex items-center justify-between">
                 <div>
-                    <h4 className="font-medium text-zinc-900 dark:text-white">Spell Check</h4>
-                    <p className="text-xs text-zinc-500">Highlight spelling errors in the editor.</p>
+                    <h4 className="font-medium text-white">Spell Check</h4>
+                    <p className="text-xs text-zinc-400">Highlight spelling errors in the editor.</p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input type="checkbox" className="sr-only peer" checked={spellCheckEnabled} onChange={() => { playButtonSound(); setSpellCheckEnabled(!spellCheckEnabled); }} />
-                  <div className="w-11 h-6 bg-zinc-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-cyan-500 dark:bg-zinc-700 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-zinc-600 peer-checked:bg-cyan-600"></div>
+                  <div className="w-11 h-6 bg-[#333] peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-cyan-500 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-500"></div>
                 </label>
               </div>
 
               {/* Translate To */}
               <div className="space-y-2">
                 <div>
-                    <h4 className="font-medium text-zinc-900 dark:text-white">Translate To</h4>
-                    <p className="text-xs text-zinc-500">Select a language to translate your message to.</p>
+                    <h4 className="font-medium text-white">Translate To</h4>
+                    <p className="text-xs text-zinc-400">Select a language to translate your message to.</p>
                 </div>
                 <select 
                     value={translateTo}
                     onChange={(e) => setTranslateTo(e.target.value)}
-                    className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded-md px-3 py-2 text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    className="w-full bg-[#0a0a0a] border border-[#333] rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-colors"
                 >
                     <option value="en">English</option>
                     <option value="es">Spanish</option>
@@ -986,25 +1071,25 @@ function App() {
               {/* Auto Correct */}
               <div className="flex items-center justify-between">
                 <div>
-                    <h4 className="font-medium text-zinc-900 dark:text-white">Auto Correct</h4>
-                    <p className="text-xs text-zinc-500">Automatically correct grammar and spelling.</p>
+                    <h4 className="font-medium text-white">Auto Correct</h4>
+                    <p className="text-xs text-zinc-400">Automatically correct grammar and spelling.</p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input type="checkbox" className="sr-only peer" checked={autoCorrectEnabled} onChange={() => { playButtonSound(); setAutoCorrectEnabled(!autoCorrectEnabled); }} />
-                  <div className="w-11 h-6 bg-zinc-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-cyan-500 dark:bg-zinc-700 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-zinc-600 peer-checked:bg-cyan-600"></div>
+                  <div className="w-11 h-6 bg-[#333] peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-cyan-500 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-500"></div>
                 </label>
               </div>
             </div>
-            <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 flex justify-end gap-2 bg-zinc-50 dark:bg-zinc-950/50 rounded-b-xl">
+            <div className="p-4 border-t border-[#333] flex justify-end gap-2 bg-[#0a0a0a] rounded-b-xl">
                <button 
                 onClick={() => { playButtonSound(); setShowTextOptionsModal(false); }}
-                className="px-4 py-2 text-sm font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
+                className="px-4 py-2 text-sm font-medium text-zinc-400 hover:bg-[#222] hover:text-white rounded-lg transition-colors"
                >
                  Close
                </button>
                <button 
                 onClick={() => { playButtonSound(); toast.success("Text options applied!"); setShowTextOptionsModal(false); }}
-                className="px-4 py-2 text-sm font-bold text-white bg-cyan-600 hover:bg-cyan-700 rounded-lg transition-colors"
+                className="px-4 py-2 text-sm font-bold text-white bg-cyan-500 hover:bg-cyan-400 rounded-lg shadow-[0_0_15px_rgba(6,182,212,0.3)] transition-all"
                >
                  Apply & Save
                </button>
@@ -1015,40 +1100,40 @@ function App() {
 
       {/* JSON Modal */}
       {showJson && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <motion.div 
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white dark:bg-zinc-900 rounded-xl shadow-2xl w-full max-w-4xl h-[80vh] flex flex-col"
+            className="bg-[#121212] rounded-xl shadow-2xl w-full max-w-4xl h-[80vh] flex flex-col border border-[#333]"
           >
-            <div className="flex items-center justify-between p-4 border-b border-zinc-200 dark:border-zinc-800">
-              <h3 className="font-bold text-lg">JSON Editor</h3>
+            <div className="flex items-center justify-between p-4 border-b border-[#333]">
+              <h3 className="font-bold text-lg text-white">JSON Editor</h3>
               <div className="flex items-center gap-2">
                 <button
                   onClick={copyJson}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-md text-sm font-medium transition-colors"
+                  className="flex items-center gap-2 px-3 py-1.5 bg-[#222] hover:bg-[#333] text-zinc-300 rounded-md text-sm font-medium transition-colors border border-[#333]"
                 >
                   {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
                   {copied ? "Copied" : "Copy"}
                 </button>
-                <button onClick={() => setShowJson(false)} className="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md">
+                <button onClick={() => setShowJson(false)} className="p-1.5 hover:bg-[#222] text-zinc-400 hover:text-white rounded-md transition-colors">
                   <span className="sr-only">Close</span>
-                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12" /></svg>
+                  <X className="w-5 h-5" />
                 </button>
               </div>
             </div>
             <div className="flex-1 overflow-hidden p-0 relative">
               <textarea
-                className="w-full h-full p-4 bg-zinc-50 dark:bg-[#0d0d0d] font-mono text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 resize-none focus:outline-none"
+                className="w-full h-full p-4 bg-[#0a0a0a] font-mono text-xs sm:text-sm text-zinc-300 resize-none focus:outline-none custom-scrollbar"
                 defaultValue={JSON.stringify(message, null, 2)}
                 spellCheck={false}
                 id="json-editor-textarea"
               />
             </div>
-            <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 flex justify-end gap-2">
+            <div className="p-4 border-t border-[#333] flex justify-end gap-2 bg-[#121212] rounded-b-xl">
                <button 
                 onClick={() => setShowJson(false)}
-                className="px-4 py-2 text-sm font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
+                className="px-4 py-2 text-sm font-medium text-zinc-400 hover:bg-[#222] hover:text-white rounded-lg transition-colors"
                >
                  Cancel
                </button>
@@ -1066,7 +1151,7 @@ function App() {
                     addLog(`JSON Parse Error: ${err}`, 'error');
                   }
                 }}
-                className="px-4 py-2 text-sm font-bold text-white bg-cyan-600 hover:bg-cyan-700 rounded-lg transition-colors"
+                className="px-4 py-2 text-sm font-bold text-white bg-cyan-500 hover:bg-cyan-400 rounded-lg shadow-[0_0_15px_rgba(6,182,212,0.3)] transition-all"
                >
                  Apply Changes
                </button>
@@ -1075,91 +1160,126 @@ function App() {
         </div>
       )}
 
-      {/* Webhook Manager Modal */}
+      {/* Webhook Settings Modal */}
       {showWebhookManager && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <motion.div 
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white dark:bg-zinc-900 rounded-xl shadow-2xl w-full max-w-lg flex flex-col"
+            className="bg-[#121212] rounded-xl shadow-2xl w-full max-w-lg flex flex-col border border-[#333]"
           >
-            <div className="flex items-center justify-between p-4 border-b border-zinc-200 dark:border-zinc-800">
-              <h3 className="font-bold text-lg">Webhook Manager</h3>
-              <button onClick={() => setShowWebhookManager(false)} className="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md">
+            <div className="flex items-center justify-between p-4 border-b border-[#333]">
+              <h3 className="font-bold text-lg text-white">Webhook Settings</h3>
+              <button onClick={() => setShowWebhookManager(false)} className="p-1.5 text-zinc-400 hover:text-white hover:bg-[#222] rounded-md transition-colors">
                 <span className="sr-only">Close</span>
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12" /></svg>
+                <X className="w-5 h-5" />
               </button>
             </div>
             <div className="p-4 space-y-4">
-              <p className="text-sm text-zinc-500">
-                Paste your Discord Webhook URL below. This allows you to send messages to a specific channel.
+              <p className="text-sm text-zinc-400">
+                Configure your Discord Webhook URL. You can save multiple webhooks as "Server Channels" to easily switch between them.
               </p>
+              
+              <div className="space-y-2 bg-[#0a0a0a] p-3 rounded-lg border border-[#333]">
+                <label className="text-xs font-bold uppercase text-zinc-500">Select Server Channel</label>
+                <select
+                  className="w-full bg-[#121212] border border-[#333] rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-500 transition-colors"
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      const selected = savedWebhooks.find(wh => wh.url === e.target.value);
+                      if (selected) {
+                        setWebhookUrl(selected.url);
+                        setChannelName(selected.name);
+                        toast.success(`Channel changed to #${selected.name}`);
+                        addLog(`Switched to channel: #${selected.name}`, 'info');
+                      }
+                    } else {
+                      setWebhookUrl('');
+                      setChannelName('general');
+                    }
+                  }}
+                  value={savedWebhooks.some(wh => wh.url === webhookUrl) ? webhookUrl : ""}
+                >
+                  <option value="">-- Custom / New Webhook --</option>
+                  {savedWebhooks.map((wh, idx) => (
+                    <option key={idx} value={wh.url}>#{wh.name}</option>
+                  ))}
+                </select>
+              </div>
+
               <div className="space-y-2">
-                <label className="text-xs font-bold uppercase text-zinc-500">Current Webhook URL</label>
+                <label className="text-xs font-bold uppercase text-zinc-500">Target Webhook URL</label>
                 <input 
                   value={webhookUrl}
                   onChange={(e) => setWebhookUrl(e.target.value)}
-                  className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded-md px-3 py-2 text-sm dark:text-white"
+                  className="w-full bg-[#0a0a0a] border border-[#333] rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-500 transition-colors"
                   placeholder="https://discord.com/api/webhooks/..."
                 />
               </div>
 
               <div className="space-y-2">
-                <label className="text-xs font-bold uppercase text-zinc-500">Channel Name (for Preview)</label>
-                <div className="flex items-center gap-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded-md px-3 py-2">
-                    <span className="text-zinc-400 text-sm">#</span>
+                <label className="text-xs font-bold uppercase text-zinc-500">Channel Name (for Preview & Saving)</label>
+                <div className="flex items-center gap-2 bg-[#0a0a0a] border border-[#333] rounded-md px-3 py-2 focus-within:border-cyan-500 transition-colors">
+                    <span className="text-zinc-500 text-sm">#</span>
                     <input 
                       value={channelName}
                       onChange={(e) => setChannelName(e.target.value)}
-                      className="flex-1 bg-transparent text-sm dark:text-white focus:outline-none"
+                      className="flex-1 bg-transparent text-sm text-white focus:outline-none"
                       placeholder="general"
                     />
                 </div>
               </div>
               
-              <div className="border-t border-zinc-200 dark:border-zinc-800 pt-4">
-                <h4 className="text-sm font-bold mb-2">Saved Webhooks</h4>
+              <div className="border-t border-[#333] pt-4">
+                <div className="flex justify-between items-center mb-2">
+                  <h4 className="text-sm font-bold text-white">Manage Channels</h4>
+                  <button 
+                    onClick={() => {
+                      if (channelName && webhookUrl) {
+                        if (savedWebhooks.some(wh => wh.url === webhookUrl)) {
+                          toast.error("This webhook URL is already saved.");
+                          return;
+                        }
+                        setSavedWebhooks([...savedWebhooks, { name: channelName, url: webhookUrl }]);
+                        toast.success(`Channel #${channelName} saved!`);
+                        addLog(`Saved new channel: #${channelName}`, 'success');
+                      } else {
+                        toast.error("Enter a channel name and ensure URL is set.");
+                      }
+                    }}
+                    className="px-3 py-1.5 bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 text-xs font-bold rounded-md transition-colors flex items-center gap-1"
+                  >
+                    <Plus className="w-3 h-3" /> Save Current
+                  </button>
+                </div>
+                
                 {savedWebhooks.length === 0 && (
-                  <p className="text-xs text-zinc-500 italic">No saved webhooks yet.</p>
+                  <p className="text-xs text-zinc-500 italic bg-[#0a0a0a] p-3 rounded-md border border-[#333]">No channels saved yet. Configure a webhook URL and save it.</p>
                 )}
-                <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                <div className="space-y-2 max-h-[150px] overflow-y-auto custom-scrollbar">
                   {savedWebhooks.map((wh, idx) => (
-                    <div key={idx} className="flex items-center justify-between bg-zinc-50 dark:bg-zinc-950 p-2 rounded border border-zinc-200 dark:border-zinc-800">
-                      <span className="text-sm font-medium truncate max-w-[200px]">{wh.name}</span>
-                      <div className="flex gap-2">
-                        <button 
-                          onClick={() => { setWebhookUrl(wh.url); setShowWebhookManager(false); toast.success(`Loaded webhook: ${wh.name}`); addLog(`Loaded webhook: ${wh.name}`, 'info'); }}
-                          className="text-xs bg-cyan-500/10 text-cyan-500 px-2 py-1 rounded hover:bg-cyan-500/20"
-                        >
-                          Load
-                        </button>
-                        <button 
-                          onClick={() => { playDeleteSound(); setSavedWebhooks(savedWebhooks.filter((_, i) => i !== idx)); }}
-                          className="text-zinc-400 hover:text-red-500"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                    <div key={idx} className="flex items-center justify-between bg-[#0a0a0a] p-2 rounded-md border border-[#333] group">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-cyan-500" />
+                        <span className="text-sm font-medium text-white truncate max-w-[200px]">#{wh.name}</span>
                       </div>
+                      <button 
+                        onClick={() => { playDeleteSound(); setSavedWebhooks(savedWebhooks.filter((_, i) => i !== idx)); }}
+                        className="text-zinc-500 hover:text-red-400 p-1 rounded hover:bg-[#222] opacity-0 group-hover:opacity-100 transition-all"
+                        title="Delete Channel"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   ))}
                 </div>
-                <div className="mt-4 flex gap-2">
-                  <input id="new-wh-name" placeholder="Name (e.g. General)" className="flex-1 bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded-md px-2 py-1 text-sm" />
-                  <button 
-                    onClick={() => {
-                      const nameInput = document.getElementById('new-wh-name') as HTMLInputElement;
-                      if (nameInput.value && webhookUrl) {
-                        setSavedWebhooks([...savedWebhooks, { name: nameInput.value, url: webhookUrl }]);
-                        nameInput.value = '';
-                        toast.success("Webhook saved!");
-                        addLog("Saved new webhook", 'success');
-                      } else {
-                        toast.error("Enter a name and ensure URL is set.");
-                      }
-                    }}
-                    className="px-3 py-1 bg-zinc-200 dark:bg-zinc-800 text-xs font-bold rounded hover:bg-zinc-300 dark:hover:bg-zinc-700"
+                <div className="mt-4 pt-4 border-t border-[#333]">
+                  <button
+                    onClick={() => { playButtonSound(); setShowDeleteWebhookConfirm(true); }}
+                    disabled={!webhookUrl}
+                    className="w-full py-2 bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 text-sm font-bold rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Save Current
+                    <Trash2 className="w-4 h-4" /> Delete Webhook from Discord
                   </button>
                 </div>
               </div>
@@ -1170,31 +1290,31 @@ function App() {
 
       {/* Clear Confirm Modal */}
       {showClearConfirm && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            className="bg-white dark:bg-[#2b2d31] w-full max-w-md rounded-2xl shadow-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden"
+            className="bg-[#121212] w-full max-w-md rounded-2xl shadow-2xl border border-[#333] overflow-hidden"
           >
             <div className="p-6">
-              <h2 className="text-xl font-bold text-zinc-900 dark:text-white mb-2">Clear Message?</h2>
-              <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">
+              <h2 className="text-xl font-bold text-white mb-2">Clear Message?</h2>
+              <p className="text-sm text-zinc-400 mb-6">
                 Are you sure you want to clear the current message? This will delete text fields and embeds.
               </p>
 
               <div className="space-y-3 mb-6">
-                <label className="flex items-center justify-between p-3 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 cursor-pointer">
-                  <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Remove the WebHook URL</span>
-                  <div className={cn("w-10 h-5 rounded-full transition-colors relative", clearRemoveWebhook ? "bg-cyan-500" : "bg-zinc-300 dark:bg-zinc-700")}>
+                <label className="flex items-center justify-between p-3 rounded-lg border border-[#333] bg-[#0a0a0a] cursor-pointer">
+                  <span className="text-sm font-medium text-zinc-300">Remove the WebHook URL</span>
+                  <div className={cn("w-10 h-5 rounded-full transition-colors relative", clearRemoveWebhook ? "bg-cyan-500" : "bg-[#222]")}>
                     <div className={cn("absolute top-1 left-1 w-3 h-3 rounded-full bg-white transition-transform", clearRemoveWebhook ? "translate-x-5" : "")} />
                   </div>
                   <input type="checkbox" className="hidden" checked={clearRemoveWebhook} onChange={() => { playButtonSound(); setClearRemoveWebhook(!clearRemoveWebhook); }} />
                 </label>
                 
-                <label className="flex items-center justify-between p-3 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 cursor-pointer">
-                  <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Hard reset (Delete all message stacks)</span>
-                  <div className={cn("w-10 h-5 rounded-full transition-colors relative", clearHardReset ? "bg-red-500" : "bg-zinc-300 dark:bg-zinc-700")}>
+                <label className="flex items-center justify-between p-3 rounded-lg border border-[#333] bg-[#0a0a0a] cursor-pointer">
+                  <span className="text-sm font-medium text-zinc-300">Hard reset (Delete all message stacks)</span>
+                  <div className={cn("w-10 h-5 rounded-full transition-colors relative", clearHardReset ? "bg-red-500" : "bg-[#222]")}>
                     <div className={cn("absolute top-1 left-1 w-3 h-3 rounded-full bg-white transition-transform", clearHardReset ? "translate-x-5" : "")} />
                   </div>
                   <input type="checkbox" className="hidden" checked={clearHardReset} onChange={() => { playButtonSound(); setClearHardReset(!clearHardReset); }} />
@@ -1204,15 +1324,81 @@ function App() {
               <div className="flex justify-end gap-3">
                 <button
                   onClick={() => { playButtonSound(); setShowClearConfirm(false); }}
-                  className="px-4 py-2 rounded-lg font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                  className="px-4 py-2 rounded-lg font-medium text-zinc-400 hover:bg-[#222] hover:text-white transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={confirmClear}
-                  className="px-4 py-2 rounded-lg font-bold text-white bg-red-500 hover:bg-red-600 shadow-lg shadow-red-500/20 transition-all"
+                  className="px-4 py-2 rounded-lg font-bold text-white bg-red-500 hover:bg-red-400 shadow-[0_0_15px_rgba(239,68,68,0.3)] transition-all"
                 >
                   Clear
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Delete Webhook Confirm Modal */}
+      {showDeleteWebhookConfirm && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="bg-[#121212] w-full max-w-md rounded-2xl shadow-2xl border border-[#333] overflow-hidden"
+          >
+            <div className="p-6">
+              <h2 className="text-xl font-bold text-white mb-2">Delete Webhook?</h2>
+              <p className="text-sm text-zinc-400 mb-6">
+                Are you sure you want to delete this webhook from Discord? This action cannot be undone.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => { playButtonSound(); setShowDeleteWebhookConfirm(false); }}
+                  className="flex-1 py-2.5 bg-[#222] hover:bg-[#333] text-white font-bold rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => { playDeleteSound(); handleDeleteWebhook(); }}
+                  className="flex-1 py-2.5 bg-red-500 hover:bg-red-400 text-white font-bold rounded-lg shadow-[0_0_15px_rgba(239,68,68,0.3)] transition-all"
+                >
+                  Delete Webhook
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Delete Message Confirm Modal */}
+      {showDeleteMessageConfirm && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="bg-[#121212] w-full max-w-md rounded-2xl shadow-2xl border border-[#333] overflow-hidden"
+          >
+            <div className="p-6">
+              <h2 className="text-xl font-bold text-white mb-2">Delete Message?</h2>
+              <p className="text-sm text-zinc-400 mb-6">
+                Are you sure you want to delete this message from Discord? This action cannot be undone.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => { playButtonSound(); setShowDeleteMessageConfirm(false); }}
+                  className="flex-1 py-2.5 bg-[#222] hover:bg-[#333] text-white font-bold rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => { playDeleteSound(); handleDeleteMessage(); }}
+                  className="flex-1 py-2.5 bg-red-500 hover:bg-red-400 text-white font-bold rounded-lg shadow-[0_0_15px_rgba(239,68,68,0.3)] transition-all"
+                >
+                  Delete Message
                 </button>
               </div>
             </div>
@@ -1226,21 +1412,21 @@ function App() {
           <motion.div 
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl w-full max-w-sm flex flex-col overflow-hidden"
+            className="bg-[#121212] rounded-2xl shadow-2xl w-full max-w-sm flex flex-col overflow-hidden border border-[#333]"
           >
             <div className="p-6 text-center space-y-4">
-              <div className="w-16 h-16 rounded-full bg-amber-100 dark:bg-amber-900/20 flex items-center justify-center mx-auto mb-2">
-                <Layout className="w-8 h-8 text-amber-600 dark:text-amber-400" />
+              <div className="w-16 h-16 rounded-full bg-amber-500/10 flex items-center justify-center mx-auto mb-2 border border-amber-500/20">
+                <Layout className="w-8 h-8 text-amber-500" />
               </div>
-              <h3 className="font-bold text-xl">Mobile Experience</h3>
-              <p className="text-sm text-zinc-500">
+              <h3 className="font-bold text-xl text-white">Mobile Experience</h3>
+              <p className="text-sm text-zinc-400">
                 This Tool is Not Quite Comfortable with mobile. Do you really want to use it in mobile?
               </p>
             </div>
-            <div className="p-4 bg-zinc-50 dark:bg-zinc-950/50 border-t border-zinc-200 dark:border-zinc-800 flex flex-col gap-2">
+            <div className="p-4 bg-[#0a0a0a] border-t border-[#333] flex flex-col gap-2">
               <button 
                 onClick={() => { playButtonSound(); setShowMobileWarning(false); }}
-                className="w-full py-3 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl font-bold transition-colors"
+                className="w-full py-3 bg-cyan-500 hover:bg-cyan-400 text-white rounded-xl font-bold transition-all shadow-[0_0_15px_rgba(6,182,212,0.3)]"
               >
                 Yes
               </button>
@@ -1254,7 +1440,7 @@ function App() {
                   setShowMobileWarning(false);
                   toast.info("Attempted to force desktop mode. You may need to use your browser's 'Request Desktop Site' feature.");
                 }}
-                className="w-full py-3 bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-xl font-bold transition-colors"
+                className="w-full py-3 bg-[#222] hover:bg-[#333] text-zinc-300 hover:text-white border border-[#333] rounded-xl font-bold transition-colors"
               >
                 Go to desktop mode
               </button>

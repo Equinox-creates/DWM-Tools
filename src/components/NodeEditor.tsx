@@ -3,22 +3,26 @@ import { ReactFlow, Background, Controls, useNodesState, useEdgesState, addEdge,
 import 'reactflow/dist/style.css';
 import { DiscordWebhookMessage, DiscordEmbed, DiscordEmbedField } from '@/types';
 import { intToHex, hexToInt } from '@/utils';
-import { Trash2, Scissors, Undo, Redo, Plus } from 'lucide-react';
+import { Trash2, Scissors, Undo, Redo, Plus, ChevronDown } from 'lucide-react';
 import { playButtonSound, playDeleteSound } from '@/utils/sounds';
 
 // --- Custom Nodes ---
 
 const MessageNode = () => {
   return (
-    <div className="px-4 py-2 shadow-md rounded-md bg-white dark:bg-zinc-800 border-2 border-cyan-500 min-w-[150px] relative group">
-      <div className="font-bold text-sm mb-2 text-center border-b border-zinc-700 pb-1">Webhook Message</div>
-      <div className="relative py-1">
-        <Handle type="target" position={Position.Left} id="content" className="!bg-cyan-500" />
-        <div className="text-xs text-zinc-500 dark:text-zinc-400 ml-2">Content (String)</div>
+    <div className="shadow-2xl rounded-md bg-[#2d2d2d] border border-[#1a1a1a] min-w-[200px] overflow-visible">
+      <div className="bg-[#4a4a4a] px-3 py-1.5 rounded-t-md border-b border-[#1a1a1a] flex items-center justify-between">
+        <div className="font-semibold text-[11px] text-white tracking-wide uppercase drop-shadow-md">Webhook Message</div>
       </div>
-      <div className="relative py-1">
-        <Handle type="target" position={Position.Left} id="embeds" className="!bg-purple-500" style={{ top: '50%' }} />
-        <div className="text-xs text-zinc-500 dark:text-zinc-400 ml-2">Embeds (List)</div>
+      <div className="p-3 space-y-3">
+        <div className="relative flex items-center justify-end h-4">
+          <div className="text-[11px] text-[#cccccc] mr-3">Content</div>
+          <Handle type="target" position={Position.Left} id="content" className="!w-3.5 !h-3.5 !bg-[#63c76a] !border-2 !border-[#2d2d2d] !-ml-2 hover:!bg-white transition-colors" />
+        </div>
+        <div className="relative flex items-center justify-end h-4">
+          <div className="text-[11px] text-[#cccccc] mr-3">Embeds</div>
+          <Handle type="target" position={Position.Left} id="embeds" className="!w-3.5 !h-3.5 !bg-[#a881e6] !border-2 !border-[#2d2d2d] !-ml-2 hover:!bg-white transition-colors" />
+        </div>
       </div>
     </div>
   );
@@ -29,20 +33,23 @@ const StringNode = ({ data, id }: NodeProps) => {
   const deleteNode = () => setNodes((nds) => nds.filter((n) => n.id !== id));
 
   return (
-    <div className="px-4 py-2 shadow-md rounded-md bg-white dark:bg-zinc-800 border border-zinc-600 min-w-[200px] relative group">
-      <div className="flex justify-between items-center mb-2">
-        <div className="font-bold text-xs text-zinc-400">{data.label}</div>
-        <button onClick={() => { playDeleteSound(); deleteNode(); }} className="text-zinc-500 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
+    <div className="shadow-2xl rounded-md bg-[#2d2d2d] border border-[#1a1a1a] min-w-[220px] overflow-visible group">
+      <div className="bg-[#5e81ac] px-3 py-1.5 rounded-t-md border-b border-[#1a1a1a] flex items-center justify-between">
+        <div className="font-semibold text-[11px] text-white tracking-wide uppercase drop-shadow-md">{data.label}</div>
+        <button onClick={() => { playDeleteSound(); deleteNode(); }} className="text-white/50 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity">
             <Trash2 className="w-3 h-3" />
         </button>
       </div>
-      <textarea 
-        className="w-full bg-zinc-900 text-xs text-white p-2 rounded border border-zinc-700 resize-y"
-        value={data.value}
-        onChange={(e) => data.onChange(id, e.target.value)}
-        rows={3}
-      />
-      <Handle type="source" position={Position.Right} className="!bg-cyan-500" />
+      <div className="p-3">
+        <textarea 
+          className="w-full bg-[#1d1d1d] text-[11px] text-white p-2 rounded border border-[#3d3d3d] focus:border-[#5e81ac] focus:outline-none resize-y nodrag shadow-inner"
+          value={data.value}
+          onChange={(e) => data.onChange(id, e.target.value)}
+          rows={3}
+          placeholder="Enter text..."
+        />
+        <Handle type="source" position={Position.Right} className="!w-3.5 !h-3.5 !bg-[#63c76a] !border-2 !border-[#2d2d2d] !-mr-2 hover:!bg-white transition-colors" />
+      </div>
     </div>
   );
 };
@@ -52,41 +59,76 @@ const EmbedNode = ({ data, id }: NodeProps) => {
   const deleteNode = () => setNodes((nds) => nds.filter((n) => n.id !== id));
 
   return (
-    <div className="px-4 py-2 shadow-md rounded-md bg-white dark:bg-zinc-800 border-2 border-purple-500 min-w-[180px] relative group">
-      <div className="flex justify-between items-center mb-2 border-b border-zinc-700 pb-1">
-        <div className="font-bold text-sm text-center flex-1">Embed</div>
-        <button onClick={() => { playDeleteSound(); deleteNode(); }} className="text-zinc-500 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity absolute right-0 top-0">
+    <div className="shadow-2xl rounded-md bg-[#2d2d2d] border border-[#1a1a1a] min-w-[240px] overflow-visible group">
+      <div className="bg-[#a881e6] px-3 py-1.5 rounded-t-md border-b border-[#1a1a1a] flex items-center justify-between">
+        <div className="font-semibold text-[11px] text-white tracking-wide uppercase drop-shadow-md">Embed</div>
+        <button onClick={() => { playDeleteSound(); deleteNode(); }} className="text-white/50 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity">
             <Trash2 className="w-3 h-3" />
         </button>
       </div>
-      <div className="flex items-center gap-2 mb-2">
-        <div className="text-xs">Color:</div>
-        <input 
-          type="color" 
-          value={intToHex(data.color)} 
-          onChange={(e) => data.onChange(id, hexToInt(e.target.value) || 0)}
-          className="w-6 h-6 rounded cursor-pointer"
-        />
-      </div>
       
-      <div className="relative py-1">
-        <Handle type="target" position={Position.Left} id="title" className="!bg-cyan-500" />
-        <div className="text-xs text-zinc-500 dark:text-zinc-400 ml-2">Title</div>
-      </div>
-      <div className="relative py-1">
-        <Handle type="target" position={Position.Left} id="description" className="!bg-cyan-500" />
-        <div className="text-xs text-zinc-500 dark:text-zinc-400 ml-2">Description</div>
-      </div>
-      <div className="relative py-1">
-        <Handle type="target" position={Position.Left} id="fields" className="!bg-green-500" />
-        <div className="text-xs text-zinc-500 dark:text-zinc-400 ml-2">Fields</div>
-      </div>
-      <div className="relative py-1">
-        <Handle type="target" position={Position.Left} id="image" className="!bg-pink-500" />
-        <div className="text-xs text-zinc-500 dark:text-zinc-400 ml-2">Image URL</div>
-      </div>
+      <div className="p-3 space-y-2.5">
+        <div className="flex items-center justify-between mb-3 bg-[#1d1d1d] p-1.5 rounded border border-[#3d3d3d] shadow-inner">
+          <div className="text-[11px] text-[#cccccc] ml-1">Color</div>
+          <input 
+            type="color" 
+            value={intToHex(data.color)} 
+            onChange={(e) => data.onChange(id, hexToInt(e.target.value) || 0)}
+            className="w-6 h-6 rounded cursor-pointer border-0 p-0 bg-transparent nodrag"
+          />
+        </div>
+        
+        <div className="relative flex items-center h-4">
+          <Handle type="target" position={Position.Left} id="title" className="!w-3.5 !h-3.5 !bg-[#63c76a] !border-2 !border-[#2d2d2d] !-ml-2 hover:!bg-white transition-colors" />
+          <div className="text-[11px] text-[#cccccc] ml-4">Title</div>
+        </div>
+        <div className="relative flex items-center h-4">
+          <Handle type="target" position={Position.Left} id="url" className="!w-3.5 !h-3.5 !bg-[#63c76a] !border-2 !border-[#2d2d2d] !-ml-2 hover:!bg-white transition-colors" />
+          <div className="text-[11px] text-[#cccccc] ml-4">URL</div>
+        </div>
+        <div className="relative flex items-center h-4">
+          <Handle type="target" position={Position.Left} id="description" className="!w-3.5 !h-3.5 !bg-[#63c76a] !border-2 !border-[#2d2d2d] !-ml-2 hover:!bg-white transition-colors" />
+          <div className="text-[11px] text-[#cccccc] ml-4">Description</div>
+        </div>
+        <div className="relative flex items-center h-4">
+          <Handle type="target" position={Position.Left} id="authorName" className="!w-3.5 !h-3.5 !bg-[#63c76a] !border-2 !border-[#2d2d2d] !-ml-2 hover:!bg-white transition-colors" />
+          <div className="text-[11px] text-[#cccccc] ml-4">Author Name</div>
+        </div>
+        <div className="relative flex items-center h-4">
+          <Handle type="target" position={Position.Left} id="authorUrl" className="!w-3.5 !h-3.5 !bg-[#63c76a] !border-2 !border-[#2d2d2d] !-ml-2 hover:!bg-white transition-colors" />
+          <div className="text-[11px] text-[#cccccc] ml-4">Author URL</div>
+        </div>
+        <div className="relative flex items-center h-4">
+          <Handle type="target" position={Position.Left} id="authorIcon" className="!w-3.5 !h-3.5 !bg-[#63c76a] !border-2 !border-[#2d2d2d] !-ml-2 hover:!bg-white transition-colors" />
+          <div className="text-[11px] text-[#cccccc] ml-4">Author Icon URL</div>
+        </div>
+        <div className="relative flex items-center h-4">
+          <Handle type="target" position={Position.Left} id="fields" className="!w-3.5 !h-3.5 !bg-[#ebcb8b] !border-2 !border-[#2d2d2d] !-ml-2 hover:!bg-white transition-colors" />
+          <div className="text-[11px] text-[#cccccc] ml-4">Fields</div>
+        </div>
+        <div className="relative flex items-center h-4">
+          <Handle type="target" position={Position.Left} id="image" className="!w-3.5 !h-3.5 !bg-[#63c76a] !border-2 !border-[#2d2d2d] !-ml-2 hover:!bg-white transition-colors" />
+          <div className="text-[11px] text-[#cccccc] ml-4">Image URL</div>
+        </div>
+        <div className="relative flex items-center h-4">
+          <Handle type="target" position={Position.Left} id="thumbnail" className="!w-3.5 !h-3.5 !bg-[#63c76a] !border-2 !border-[#2d2d2d] !-ml-2 hover:!bg-white transition-colors" />
+          <div className="text-[11px] text-[#cccccc] ml-4">Thumbnail URL</div>
+        </div>
+        <div className="relative flex items-center h-4">
+          <Handle type="target" position={Position.Left} id="footerText" className="!w-3.5 !h-3.5 !bg-[#63c76a] !border-2 !border-[#2d2d2d] !-ml-2 hover:!bg-white transition-colors" />
+          <div className="text-[11px] text-[#cccccc] ml-4">Footer Text</div>
+        </div>
+        <div className="relative flex items-center h-4">
+          <Handle type="target" position={Position.Left} id="footerIcon" className="!w-3.5 !h-3.5 !bg-[#63c76a] !border-2 !border-[#2d2d2d] !-ml-2 hover:!bg-white transition-colors" />
+          <div className="text-[11px] text-[#cccccc] ml-4">Footer Icon URL</div>
+        </div>
+        <div className="relative flex items-center h-4">
+          <Handle type="target" position={Position.Left} id="timestamp" className="!w-3.5 !h-3.5 !bg-[#63c76a] !border-2 !border-[#2d2d2d] !-ml-2 hover:!bg-white transition-colors" />
+          <div className="text-[11px] text-[#cccccc] ml-4">Timestamp (ISO)</div>
+        </div>
 
-      <Handle type="source" position={Position.Right} className="!bg-purple-500" />
+        <Handle type="source" position={Position.Right} className="!w-3.5 !h-3.5 !bg-[#a881e6] !border-2 !border-[#2d2d2d] !-mr-2 hover:!bg-white transition-colors" />
+      </div>
     </div>
   );
 };
@@ -96,37 +138,38 @@ const FieldNode = ({ data, id }: NodeProps) => {
   const deleteNode = () => setNodes((nds) => nds.filter((n) => n.id !== id));
 
   return (
-    <div className="px-4 py-2 shadow-md rounded-md bg-white dark:bg-zinc-800 border-2 border-green-500 min-w-[200px] relative group">
-      <div className="flex justify-between items-center mb-2 border-b border-zinc-700 pb-1">
-        <div className="font-bold text-sm text-center flex-1">Field</div>
-        <button onClick={() => { playDeleteSound(); deleteNode(); }} className="text-zinc-500 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity absolute right-0 top-0">
+    <div className="shadow-2xl rounded-md bg-[#2d2d2d] border border-[#1a1a1a] min-w-[220px] overflow-visible group">
+      <div className="bg-[#ebcb8b] px-3 py-1.5 rounded-t-md border-b border-[#1a1a1a] flex items-center justify-between">
+        <div className="font-semibold text-[11px] text-[#2b2b2b] tracking-wide uppercase drop-shadow-sm">Field</div>
+        <button onClick={() => { playDeleteSound(); deleteNode(); }} className="text-[#2b2b2b]/50 hover:text-[#2b2b2b] opacity-0 group-hover:opacity-100 transition-opacity">
             <Trash2 className="w-3 h-3" />
         </button>
       </div>
-      <div className="space-y-2">
+      <div className="p-3 space-y-3">
         <input 
-          className="w-full bg-zinc-900 text-xs text-white p-1 rounded border border-zinc-700"
+          className="w-full bg-[#1d1d1d] text-[11px] text-white p-2 rounded border border-[#3d3d3d] focus:border-[#ebcb8b] focus:outline-none nodrag shadow-inner"
           placeholder="Name"
           value={data.name}
           onChange={(e) => data.onChange(id, { ...data, name: e.target.value })}
         />
         <textarea 
-          className="w-full bg-zinc-900 text-xs text-white p-1 rounded border border-zinc-700"
+          className="w-full bg-[#1d1d1d] text-[11px] text-white p-2 rounded border border-[#3d3d3d] focus:border-[#ebcb8b] focus:outline-none resize-y nodrag shadow-inner"
           placeholder="Value"
           value={data.value}
           onChange={(e) => data.onChange(id, { ...data, value: e.target.value })}
           rows={2}
         />
-        <label className="flex items-center gap-2 text-xs">
+        <label className="flex items-center gap-2 text-[11px] text-[#cccccc] bg-[#1d1d1d] p-1.5 rounded border border-[#3d3d3d] shadow-inner">
           <input 
             type="checkbox" 
             checked={data.inline}
             onChange={(e) => data.onChange(id, { ...data, inline: e.target.checked })}
+            className="nodrag accent-[#ebcb8b]"
           />
           Inline
         </label>
       </div>
-      <Handle type="source" position={Position.Right} className="!bg-green-500" />
+      <Handle type="source" position={Position.Right} className="!w-3.5 !h-3.5 !bg-[#ebcb8b] !border-2 !border-[#2d2d2d] !-mr-2 hover:!bg-white transition-colors" />
     </div>
   );
 };
@@ -154,6 +197,7 @@ const NodeEditorContent: React.FC<NodeEditorProps> = ({ message, onChange }) => 
   const [history, setHistory] = useState<{nodes: Node[], edges: Edge[]}[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [cutMode, setCutMode] = useState(false);
+  const [showAddMenu, setShowAddMenu] = useState(false);
 
   // Snapshot helper
   const takeSnapshot = useCallback(() => {
@@ -360,6 +404,13 @@ const NodeEditorContent: React.FC<NodeEditorProps> = ({ message, onChange }) => 
         if (titleNode) embed.title = titleNode.data.value;
       }
 
+      // Find URL
+      const urlEdge = edges.find(e => e.target === embedNode.id && e.targetHandle === 'url');
+      if (urlEdge) {
+        const urlNode = nodes.find(n => n.id === urlEdge.source);
+        if (urlNode) embed.url = urlNode.data.value;
+      }
+
       // Find Description
       const descEdge = edges.find(e => e.target === embedNode.id && e.targetHandle === 'description');
       if (descEdge) {
@@ -367,11 +418,62 @@ const NodeEditorContent: React.FC<NodeEditorProps> = ({ message, onChange }) => 
         if (descNode) embed.description = descNode.data.value;
       }
 
+      // Find Author
+      const authorNameEdge = edges.find(e => e.target === embedNode.id && e.targetHandle === 'authorName');
+      const authorUrlEdge = edges.find(e => e.target === embedNode.id && e.targetHandle === 'authorUrl');
+      const authorIconEdge = edges.find(e => e.target === embedNode.id && e.targetHandle === 'authorIcon');
+      
+      if (authorNameEdge || authorUrlEdge || authorIconEdge) {
+        embed.author = { name: '' };
+        if (authorNameEdge) {
+          const node = nodes.find(n => n.id === authorNameEdge.source);
+          if (node) embed.author.name = node.data.value;
+        }
+        if (authorUrlEdge) {
+          const node = nodes.find(n => n.id === authorUrlEdge.source);
+          if (node) embed.author.url = node.data.value;
+        }
+        if (authorIconEdge) {
+          const node = nodes.find(n => n.id === authorIconEdge.source);
+          if (node) embed.author.icon_url = node.data.value;
+        }
+      }
+
       // Find Image
       const imageEdge = edges.find(e => e.target === embedNode.id && e.targetHandle === 'image');
       if (imageEdge) {
         const imageNode = nodes.find(n => n.id === imageEdge.source);
         if (imageNode) embed.image = { url: imageNode.data.value };
+      }
+
+      // Find Thumbnail
+      const thumbnailEdge = edges.find(e => e.target === embedNode.id && e.targetHandle === 'thumbnail');
+      if (thumbnailEdge) {
+        const thumbnailNode = nodes.find(n => n.id === thumbnailEdge.source);
+        if (thumbnailNode) embed.thumbnail = { url: thumbnailNode.data.value };
+      }
+
+      // Find Footer
+      const footerTextEdge = edges.find(e => e.target === embedNode.id && e.targetHandle === 'footerText');
+      const footerIconEdge = edges.find(e => e.target === embedNode.id && e.targetHandle === 'footerIcon');
+      
+      if (footerTextEdge || footerIconEdge) {
+        embed.footer = { text: '' };
+        if (footerTextEdge) {
+          const node = nodes.find(n => n.id === footerTextEdge.source);
+          if (node) embed.footer.text = node.data.value;
+        }
+        if (footerIconEdge) {
+          const node = nodes.find(n => n.id === footerIconEdge.source);
+          if (node) embed.footer.icon_url = node.data.value;
+        }
+      }
+
+      // Find Timestamp
+      const timestampEdge = edges.find(e => e.target === embedNode.id && e.targetHandle === 'timestamp');
+      if (timestampEdge) {
+        const timestampNode = nodes.find(n => n.id === timestampEdge.source);
+        if (timestampNode) embed.timestamp = timestampNode.data.value;
       }
 
       // Find Fields
@@ -417,7 +519,7 @@ const NodeEditorContent: React.FC<NodeEditorProps> = ({ message, onChange }) => 
       takeSnapshot();
   }, [takeSnapshot]);
 
-  const addNode = (type: string) => {
+  const addNode = (type: string, label?: string) => {
     playButtonSound();
     const id = `${type}-${Date.now()}`;
     const newNode: Node = {
@@ -428,7 +530,7 @@ const NodeEditorContent: React.FC<NodeEditorProps> = ({ message, onChange }) => 
     };
 
     if (type === 'stringNode') {
-      newNode.data = { value: 'Text', label: 'Text Node', onChange: updateStringNode };
+      newNode.data = { value: '', label: label || 'Text Node', onChange: updateStringNode };
     } else if (type === 'embedNode') {
       newNode.data = { color: 0, onChange: updateEmbedNode };
     } else if (type === 'fieldNode') {
@@ -437,15 +539,42 @@ const NodeEditorContent: React.FC<NodeEditorProps> = ({ message, onChange }) => 
 
     setNodes((nds) => [...nds, newNode]);
     takeSnapshot();
+    setShowAddMenu(false);
   };
 
   return (
     <div className={`h-full flex flex-col bg-zinc-50 dark:bg-[#1e1e1e] rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-800 ${cutMode ? 'cursor-crosshair' : ''}`}>
       <div className="bg-white dark:bg-[#252526] px-4 py-2 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-2">
-        <div className="flex gap-2">
-            <button onClick={() => addNode('stringNode')} className="flex items-center gap-1 px-2 py-1 bg-zinc-200 dark:bg-zinc-700 text-xs rounded hover:bg-zinc-300 dark:hover:bg-zinc-600 text-zinc-700 dark:text-white"><Plus className="w-3 h-3" /> Text</button>
-            <button onClick={() => addNode('embedNode')} className="flex items-center gap-1 px-2 py-1 bg-purple-100 dark:bg-purple-700 text-xs rounded hover:bg-purple-200 dark:hover:bg-purple-600 text-purple-700 dark:text-white"><Plus className="w-3 h-3" /> Embed</button>
-            <button onClick={() => addNode('fieldNode')} className="flex items-center gap-1 px-2 py-1 bg-green-100 dark:bg-green-700 text-xs rounded hover:bg-green-200 dark:hover:bg-green-600 text-green-700 dark:text-white"><Plus className="w-3 h-3" /> Field</button>
+        <div className="relative">
+            <button 
+              onClick={() => setShowAddMenu(!showAddMenu)} 
+              className="flex items-center gap-1 px-3 py-1.5 bg-cyan-600 text-white text-xs font-bold rounded hover:bg-cyan-700 transition-colors"
+            >
+              <Plus className="w-3 h-3" /> Add Node <ChevronDown className="w-3 h-3 ml-1" />
+            </button>
+            
+            {showAddMenu && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setShowAddMenu(false)} />
+                <div className="absolute top-full left-0 mt-1 w-48 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-xl z-20 py-1 overflow-hidden">
+                  <button onClick={() => addNode('stringNode', 'Text Node')} className="w-full text-left px-4 py-2 text-xs hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-zinc-400" /> Text Node
+                  </button>
+                  <button onClick={() => addNode('embedNode')} className="w-full text-left px-4 py-2 text-xs hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-purple-500" /> Embed Node
+                  </button>
+                  <button onClick={() => addNode('stringNode', 'IMG Node')} className="w-full text-left px-4 py-2 text-xs hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-pink-500" /> IMG Node
+                  </button>
+                  <button onClick={() => addNode('stringNode', 'URL Node')} className="w-full text-left px-4 py-2 text-xs hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-blue-500" /> URL Node
+                  </button>
+                  <button onClick={() => addNode('fieldNode')} className="w-full text-left px-4 py-2 text-xs hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-green-500" /> Field Node
+                  </button>
+                </div>
+              </>
+            )}
         </div>
         <div className="flex gap-2 items-center">
             <div className="w-px h-4 bg-zinc-300 dark:bg-zinc-700 mx-1" />
@@ -477,10 +606,11 @@ const NodeEditorContent: React.FC<NodeEditorProps> = ({ message, onChange }) => 
           nodeTypes={nodeTypes}
           fitView
           deleteKeyCode={['Backspace', 'Delete']}
+          proOptions={{ hideAttribution: true }}
+          className="bg-[#1a1a1a]"
         >
-          <Background color="#888" gap={16} className="dark:hidden" />
-          <Background color="#333" gap={16} className="hidden dark:block" />
-          <Controls className="!bg-white dark:!bg-[#1e1e1e] !border-zinc-200 dark:!border-zinc-700 [&>button]:!border-zinc-200 dark:[&>button]:!border-zinc-700 [&>button]:!fill-zinc-700 dark:[&>button]:!fill-zinc-400 hover:[&>button]:!bg-zinc-100 dark:hover:[&>button]:!bg-zinc-800" />
+          <Background color="#333" gap={24} size={2} className="opacity-50" />
+          <Controls className="!bg-[#2d2d2d] !border-[#1a1a1a] !shadow-2xl !rounded-md overflow-hidden [&>button]:!border-b [&>button]:!border-[#1a1a1a] [&>button]:!bg-[#2d2d2d] [&>button]:!fill-[#cccccc] hover:[&>button]:!bg-[#3d3d3d] hover:[&>button]:!fill-white transition-colors" />
         </ReactFlow>
       </div>
     </div>

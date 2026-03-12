@@ -44,13 +44,13 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({ value, options, onCh
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded-md px-3 py-2 text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all"
+        className="w-full flex items-center justify-between bg-[#0a0a0a] border border-[#333] rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all"
       >
         <span className="flex items-center gap-2 truncate">
           {selectedOption?.icon}
-          {selectedOption ? selectedOption.label : <span className="text-zinc-400">{placeholder}</span>}
+          {selectedOption ? selectedOption.label : <span className="text-zinc-500">{placeholder}</span>}
         </span>
-        <ChevronDown className={cn("w-4 h-4 text-zinc-400 transition-transform", isOpen && "rotate-180")} />
+        <ChevronDown className={cn("w-4 h-4 text-zinc-500 transition-transform", isOpen && "rotate-180")} />
       </button>
 
       <AnimatePresence>
@@ -59,7 +59,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({ value, options, onCh
             initial={{ opacity: 0, y: -5 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -5 }}
-            className="absolute z-50 w-full mt-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-md shadow-lg max-h-60 overflow-y-auto custom-scrollbar"
+            className="absolute z-50 w-full mt-1 bg-[#121212] border border-[#333] rounded-md shadow-lg max-h-60 overflow-y-auto custom-scrollbar"
           >
             {options.map((option) => (
               <button
@@ -70,8 +70,8 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({ value, options, onCh
                   setIsOpen(false);
                 }}
                 className={cn(
-                  "w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors",
-                  value === option.value ? "text-cyan-600 dark:text-cyan-400 font-medium bg-cyan-50 dark:bg-cyan-900/10" : "text-zinc-700 dark:text-zinc-300"
+                  "w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-[#222] transition-colors",
+                  value === option.value ? "text-cyan-400 font-medium bg-cyan-900/20" : "text-zinc-300"
                 )}
               >
                 {option.icon}
@@ -119,14 +119,14 @@ export const CustomColorPicker: React.FC<CustomColorPickerProps> = ({ color, onC
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className="w-10 h-10 rounded-md border border-zinc-300 dark:border-zinc-700 shadow-sm flex items-center justify-center overflow-hidden relative group"
+          className="w-10 h-10 rounded-md border border-[#333] shadow-sm flex items-center justify-center overflow-hidden relative group"
           style={{ backgroundColor: color }}
         >
             <div className="absolute inset-0 bg-black/10 group-hover:bg-black/20 transition-colors" />
             <Palette className="w-4 h-4 text-white drop-shadow-md opacity-0 group-hover:opacity-100 transition-opacity" />
         </button>
         <div className="flex-1 relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-xs">#</span>
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-xs">#</span>
             <input
                 type="text"
                 value={color.replace('#', '')}
@@ -137,7 +137,7 @@ export const CustomColorPicker: React.FC<CustomColorPickerProps> = ({ color, onC
                     }
                 }}
                 maxLength={6}
-                className="w-full h-10 bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded-md pl-6 pr-3 text-sm font-mono uppercase focus:outline-none focus:ring-2 focus:ring-cyan-500 dark:text-white"
+                className="w-full h-10 bg-[#0a0a0a] border border-[#333] rounded-md pl-6 pr-3 text-sm font-mono uppercase focus:outline-none focus:ring-2 focus:ring-cyan-500 text-white"
             />
         </div>
       </div>
@@ -148,7 +148,7 @@ export const CustomColorPicker: React.FC<CustomColorPickerProps> = ({ color, onC
             initial={{ opacity: 0, y: 5 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 5 }}
-            className="absolute z-50 left-0 mt-2 w-64 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-xl p-3"
+            className="absolute z-50 left-0 mt-2 w-64 bg-[#121212] border border-[#333] rounded-lg shadow-xl p-3"
           >
             <div className="grid grid-cols-4 gap-2 mb-3">
               {PRESET_COLORS.map((c) => (
@@ -157,8 +157,8 @@ export const CustomColorPicker: React.FC<CustomColorPickerProps> = ({ color, onC
                   type="button"
                   onClick={() => onChange(c)}
                   className={cn(
-                    "w-8 h-8 rounded-full border border-zinc-200 dark:border-zinc-700 shadow-sm transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 dark:focus:ring-offset-zinc-900",
-                    color.toLowerCase() === c.toLowerCase() && "ring-2 ring-offset-2 ring-cyan-500 dark:ring-offset-zinc-900"
+                    "w-8 h-8 rounded-full border border-[#333] shadow-sm transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 focus:ring-offset-[#121212]",
+                    color.toLowerCase() === c.toLowerCase() && "ring-2 ring-offset-2 ring-cyan-500 ring-offset-[#121212]"
                   )}
                   style={{ backgroundColor: c }}
                   title={c}
@@ -230,13 +230,13 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({ value, onCha
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded-md px-3 py-2 text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all"
+        className="w-full flex items-center justify-between bg-[#0a0a0a] border border-[#333] rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all"
       >
-        <span className="flex items-center gap-2 truncate text-zinc-700 dark:text-zinc-300">
-          <CalendarIcon className="w-4 h-4 text-zinc-400" />
-          {isValidDate ? format(parsedDate, 'PPp') : <span className="text-zinc-400">Select Date & Time</span>}
+        <span className="flex items-center gap-2 truncate text-zinc-300">
+          <CalendarIcon className="w-4 h-4 text-zinc-500" />
+          {isValidDate ? format(parsedDate, 'PPp') : <span className="text-zinc-500">Select Date & Time</span>}
         </span>
-        <ChevronDown className={cn("w-4 h-4 text-zinc-400 transition-transform", isOpen && "rotate-180")} />
+        <ChevronDown className={cn("w-4 h-4 text-zinc-500 transition-transform", isOpen && "rotate-180")} />
       </button>
 
       <AnimatePresence>
@@ -245,18 +245,21 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({ value, onCha
             initial={{ opacity: 0, y: 5 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 5 }}
-            className="absolute z-50 left-0 mt-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-xl p-3"
+            className="absolute z-50 left-0 mt-2 bg-[#121212] border border-[#333] rounded-lg shadow-xl p-3"
           >
             <DayPicker
               mode="single"
               selected={selectedDate}
               onSelect={handleDateSelect}
-              className="border-b border-zinc-200 dark:border-zinc-800 pb-3 mb-3"
-              classNames={{
-                day_selected: "bg-cyan-600 text-white hover:bg-cyan-700",
-                day_today: "font-bold text-cyan-600",
-                button: "hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors",
-              }}
+              className="border-b border-[#333] pb-3 mb-3"
+                classNames={{
+                  day_selected: "bg-cyan-600 text-white hover:bg-cyan-700",
+                  day_today: "font-bold text-cyan-600",
+                  button: "hover:bg-[#222] rounded-md transition-colors text-white",
+                  head_cell: "text-zinc-400 font-medium",
+                  nav_button: "hover:bg-[#222] text-zinc-300",
+                  caption: "text-white font-medium",
+                }}
             />
             <div className="flex items-center gap-2 px-2">
               <Clock className="w-4 h-4 text-zinc-500" />
@@ -264,7 +267,7 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({ value, onCha
                 type="time"
                 value={timeString}
                 onChange={handleTimeChange}
-                className="flex-1 bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded-md px-2 py-1 text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="flex-1 bg-[#0a0a0a] border border-[#333] rounded-md px-2 py-1 text-sm text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
               />
             </div>
             {isValidDate && (
@@ -274,7 +277,7 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({ value, onCha
                   setSelectedDate(undefined);
                   setIsOpen(false);
                 }}
-                className="w-full mt-3 text-xs text-red-500 hover:text-red-600 font-medium py-1"
+                className="w-full mt-3 text-xs text-red-500 hover:text-red-400 font-medium py-1"
               >
                 Clear Timestamp
               </button>
